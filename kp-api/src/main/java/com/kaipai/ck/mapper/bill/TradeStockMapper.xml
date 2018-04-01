@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kaipai.ck.mapper.bill.TradeStockMapper">
+
+
+   	<select id="getUserPrivVersion" resultType="Long" parameterType="long">
+	      SELECT VER FROM BI_USER_PRIV_INFO T where T.USER_ID = #{userId};
+	</select>
+	
+
+    <select id="getUserStockIsEmpty" resultType="com.kaipai.ck.model.trade.UserStockModel" parameterType="map">
+	     select 
+	     stock_code as stockCode,
+	     user_id as userId,
+	     trade_num as ttlNum,
+	     lock_num as lckNum,
+	     create_tm as createTm
+	     from  xf_user_stock
+	     where stock_code=#{stockCode} and user_id=#{userId} and trade_num=0 and lock_num=0
+		
+	</select>
+
+
+	<select id="getBuyStockByUserIdAndPno" resultType="com.kaipai.ck.model.trade.BuyStockHisModel" parameterType="map">
+	     select 
+	     stock_code as stockCode,
+	     user_id as userId,
+	     b_pno as bPno,
+	     trade_num as tradeNum,
+	     trade_amt_ttl as tradeAmtTtl,
+	     trade_buy_fee as tradeBuyFeeRate,
+	     create_tm createTm,
+	     trade_amt as tradeBuyAmt
+	     from  xf_buy_stock_his
+		 where stock_code=#{stockCode} and user_id=#{userId} and b_pno=#{bPno}
+	</select>
+	
+	<!-- 用户金额明细 -->
+	<insert id="insertBuyUserStock" parameterType="com.kaipai.ck.model.trade.BuyStockHisModel"  >
+		insert into xf_buy_stock_his(stock_code,user_id,b_pno,trade_num,trade_amt_ttl,trade_buy_fee,create_tm,trade_amt) 
+		values(
+		#{stockCode,jdbcType=VARCHAR},
+		#{userId,jdbcType=BIGINT},
+		#{bPno,jdbcType=VARCHAR},
+		#{tradeNum,jdbcType=BIGINT},
+		#{tradeAmtTtl,jdbcType=DOUBLE},
+		#{tradeBuyFeeRate,jdbcType=DOUBLE},
+		SYSDATE(),
+		#{tradeBuyAmt,jdbcType=DOUBLE}
+		)
+	</insert>
+	
+	
+	
+	<!-- 用户金额明细 -->
+	<insert id="insertUsrOpAmtQueue" useGeneratedKeys="true" keyProperty="qAmtId"  parameterType="com.kaipai.ck.model.bill.QueOpUsrAmtModel"  >
+		insert into bi_que_op_usr_amt_his(user_id,busi_code,op_code,op_val) 
+		values(
+		#{userId,jdbcType=BIGINT},
+		#{busiCode,jdbcType=VARCHAR},
+	    #{opCode,jdbcType=VARCHAR},
+		#{opVal,jdbcType=DOUBLE}
+		)
+	</insert>
+	
+	<update id="updateUsrOpAmtQueueStatus" parameterType="long">
+	      update bi_que_op_usr_amt_his set op_status = '1'
+	      where q_amt_id=#{qAmtId} 
+	</update>
+	
+	
+	
+	<select id="getUserStockByUserIdAndStockCode" resultType="com.kaipai.ck.model.trade.UserStockModel" parameterType="map">
+	     select 
+	     stock_code as stockCode,
+	     user_id as userId,
+	     trade_num as ttlNum,
+	     lock_num as lckNum,
+	     create_tm as createTm
+	     from  xf_user_stock
+		 where stock_code=#{stockCode} and user_id=#{userId}
+	</select>
+	
+	<!-- 用户购买股票明细 -->
+	<insert id="insertUserStock" parameterType="com.kaipai.ck.model.trade.UserStockModel">
+		insert into xf_user_stock(stock_code,user_id,trade_num,lock_num,create_tm,cost_amt_ttl) 
+		values(
+		#{stockCode},
+		#{userId},
+		#{ttlNum},
+		#{lckNum},
+		SYSDATE(),
+		#{costAmtTtl}
+		)
+	</insert>
+	
+	<select id="findUserStockCount" parameterType="long" resultType="int">
+		select
+			count(0)
+		from
+			xf_user_stock
+		where
+			user_id = #{userId} and (trade_num >= 100 or lock_num >= 100)
+	</select>
+	
+		<!-- 更新用户股票信息 -->
+	<update id="updateLockSaleUserStock" parameterType="map">
+	      update xf_user_stock set trade_num = trade_num-#{tradeNum} ,lock_num = lock_num+ #{tradeNum} 
+	      where user_id=#{userId} and stock_code=#{stockCode}
+	</update>
+		
+	<update id="addBuyUserStock" parameterType="map">
+	      update xf_user_stock set trade_num = trade_num+#{tradeNum} ,cost_amt_ttl = cost_amt_ttl+ #{costAmtTtl} 
+	      where user_id=#{userId} and stock_code=#{stockCode}
+	</update>
+	
+	<!-- 撤单操作，撤销股票股份数目 -->
+	<update id="updateReleaseSaleUserStock" parameterType="map">
+	      update xf_user_stock set lock_num = lock_num-#{tradeNum} ,
+	      trade_num = trade_num + #{tradeNum}
+	      where user_id=#{userId} and stock_code=#{stockCode}
+	</update>
+	
+	
+	<update id="tradeSuccessSalUserStock" parameterType="map">
+	      update xf_user_stock set lock_num = lock_num-#{tradeNum} ,cost_amt_ttl = cost_amt_ttl- #{costAmtTtl} 
+	      where user_id=#{userId} and stock_code=#{stockCode}
+	</update>
+	
+	<update id="tradeSuccessSalUserStockEmptyCostAmtTtl" parameterType="map">
+	      update xf_user_stock set cost_amt_ttl = 0
+	      where user_id=#{userId} and stock_code=#{stockCode}
+	</update>
+	
+	<update id="updateLockUserBuyStockAmt" parameterType="map">
+	    update bi_user_priv_info set ver=ver+1, lst_amt = amt, amt = amt-#{lockAmt}, lock_amt = lock_amt + #{lockAmt,jdbcType=DOUBLE}
+	    where user_id = #{userId,jdbcType=BIGINT} 
+	</update>
+	
+	<update id="updateReleaseUserBuyStockAmt" parameterType="map">
+	    update bi_user_priv_info set   ver=ver+1, lst_amt = amt,lock_amt = lock_amt - #{lockAmt,jdbcType=DOUBLE} ,amt=amt + #{lockAmt,jdbcType=DOUBLE}
+	    where user_id = #{userId,jdbcType=BIGINT} and lock_amt >= #{lockAmt,jdbcType=DOUBLE}
+	</update>
+	
+	<update id="tradeSuccessUserBuyStockAmt" parameterType="map">
+	    update bi_user_priv_info set  ver=ver+1, lock_amt = lock_amt - #{lockAmt,jdbcType=DOUBLE} 
+	    where user_id = #{userId,jdbcType=BIGINT} and lock_amt >= #{lockAmt,jdbcType=DOUBLE}
+	</update>
+	
+	 <update id="updateIncreaseUserSaleStockAmt" parameterType="map">
+	     update bi_user_priv_info set ver=ver+1,lst_amt = amt, amt = amt+#{tradeAmt}
+	    where user_id = #{userId,jdbcType=BIGINT} 
+	</update>
+	
+	<update id="updateSubUserLockAmt" parameterType="map">
+	    update bi_user_priv_info set ver=ver+1,lst_amt = amt, amt = amt+#{subAmt}, lock_amt = lock_amt - #{subAmt,jdbcType=DOUBLE}
+	    where user_id = #{userId,jdbcType=BIGINT} 
+	</update>
+	
+	
+
+	<!-- 用户股票明细 -->
+	<insert id="insertUserStocckHis" parameterType="com.kaipai.ck.model.bill.UserStockHisModel"  >
+		insert into xf_user_stock_his(sn_no,user_id,stk_num,op_code,stk_info,busi_code,keywd) 
+		values(
+		#{snNo,jdbcType=VARCHAR},
+		#{userId,jdbcType=BIGINT},
+		#{stkNum,jdbcType=BIGINT},
+		#{opCode,jdbcType=VARCHAR},
+		#{stkInfo,jdbcType=VARCHAR},
+		#{busiCode,jdbcType=VARCHAR},
+		#{keywd,jdbcType=VARCHAR}
+		)
+	</insert>
+	
+	<!--  
+	
+	<parameterMap type="map" id="opAMtParaMap">  
+   <parameter property="P_USER_ID" jdbcType="BIGINT" mode="IN"/>  
+   <parameter property="P_OP_AMT" jdbcType="DOUBLE" mode="IN"/> and ver=#{version,jdbcType=BIGINT}
+    <parameter property="P_OP_BUSI_CODE" jdbcType="VARCHAR" mode="IN"/>  
+   <parameter property="P_BUSI_KEY" jdbcType="VARCHAR" mode="IN"/>  
+   <parameter property="RES_FLG" jdbcType="INTEGER"  mode="OUT"/>  
+   </parameterMap> 
+
+ 
+<update id="opUserAmtPro" parameterMap="opAMtParaMap"  statementType="CALLABLE">  
+   {
+   call PROC_USR_AMT(#{P_USER_ID}, #{P_OP_AMT},#{P_OP_BUSI_CODE},#{P_BUSI_KEY},#{RES_FLG})
+   }  
+ </update>  
+ 
+ -->
+ 
+  <select id="lockBuyAnSalUserId" resultType="Long" parameterType="map">
+	      SELECT VER FROM BI_USER_PRIV_INFO T where T.USER_ID = #{buyUserId} or T.USER_ID=#{saleUserId} and for update
+	</select>
+	
+	
+	
+	  <select id="getAllUsrAmtTtl" resultType="Double" >
+
+	     select sum(amt)/100+sum(lock_amt)/100 from bi_user_priv_info where user_id not in(
+                   select cfg_val from xf_trade_cfg where cfg_key='IG_USR'
+             )
+	     
+	</select>
+	
+	
+	 <select id="getStockNumTtlByStock" resultType="long"  parameterType="string" >
+
+	    select sum(trade_num)+sum(lock_num) num from xf_user_stock where stock_code=#{stockCode} and user_id not in(
+                 select cfg_val from xf_trade_cfg where cfg_key='IG_USR'
+         )
+	     
+	</select>
+	
+
+
+</mapper>

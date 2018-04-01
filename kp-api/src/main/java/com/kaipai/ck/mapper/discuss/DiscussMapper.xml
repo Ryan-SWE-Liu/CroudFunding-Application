@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kaipai.ck.mapper.discuss.DiscussMapper">
+
+	<!-- 分页查询讨论信息 -->
+	<select id="getDiscussQueryPage" resultType="com.kaipai.ck.model.discuss.Discuss" parameterType="hashmap">
+		<if test="discussType == 1 ">
+			select 
+			k.act_no numb , k.disc_id discId ,k.source , k.content 
+			, k.relpy_content relpyContent 
+			, date_format(k.disc_tm ,'%Y-%c-%d %H:%i:%s') discTm 
+			, k.user_id userId , k.user_name userName , k.nick_name nickName
+			, k.is_del isDel
+			from kp_act_discuss k
+		where 1=1 
+		</if>
+		<if test="discussType == 2 ">
+			select 
+			k.coll_no numb , k.disc_id discId ,k.source , k.content 
+			, k.relpy_content relpyContent 
+			, date_format(k.disc_tm ,'%Y-%c-%d %H:%i:%s') discTm 
+			, k.user_id userId , k.user_name userName , k.nick_name nickName
+			, k.is_del isDel
+			from kp_coll_discuss k
+		where 1=1 
+		</if>
+		<if test="discussType == 3 ">
+			select 
+			k.video_id numb , k.disc_id discId ,k.source , k.content 
+			, k.relpy_content relpyContent 
+			, date_format(k.disc_tm ,'%Y-%c-%d %H:%i:%s') discTm 
+			, k.user_id userId , k.user_name userName , k.nick_name nickName
+			, k.is_del isDel
+			from kp_video_discuss k 
+		where 1=1 
+		</if>
+		<if test="nickName != null and nickName !=''">
+		  and k.nick_name like '%${nickName}%' 
+		</if>
+		<if test="source != null and source != ''">
+		  and k.source = #{source}
+		</if>
+		<if test="isDel != null and isDel!=''">
+		  and k.is_del = #{isDel}
+		</if>
+		<if test="startTm != null and startTm != ''">
+		  <![CDATA[ and k.disc_tm >= #{startTm}]]>
+		</if>
+		<if test="endTm != null and endTm != ''">
+		  <![CDATA[ and k.disc_tm <= #{endTm}]]>
+		</if>
+		order by k.disc_tm desc
+		limit #{pageIndex},#{pageSize}
+	</select>
+
+	<!-- 查询记录的总数，用于分页显示 -->
+	<select id="getTotalCount" resultType="long"  parameterType="hashmap">
+		<if test="discussType == 1 ">
+			select count(0) 
+			from kp_act_discuss k
+		where 1=1 
+		</if>
+		<if test="discussType == 2 ">
+			select  count(0) 
+			from kp_coll_discuss k
+		where 1=1 
+		</if>
+		<if test="discussType == 3 ">
+			select count(0) 
+			from kp_video_discuss k 
+		where 1=1 
+		</if>
+		<if test="nickName != null and nickName !=''">
+		  and k.nick_name like '%${nickName}%' 
+		</if>
+		<if test="source != null and source != ''">
+		  and k.source = #{source}
+		</if>
+		<if test="isDel != null and isDel!=''">
+		  and k.is_del = #{isDel}
+		</if>
+		<if test="startTm != null and startTm != ''">
+		  <![CDATA[ and k.disc_tm >= #{startTm}]]>
+		</if>
+		<if test="endTm != null and endTm != ''">
+		  <![CDATA[ and k.disc_tm <= #{endTm}]]>
+		</if>
+	</select>
+
+	<!-- 查询订单信息 -->
+	<select id="findDiscussByNumb" resultType="com.kaipai.ck.model.discuss.Discuss" parameterType="com.kaipai.ck.model.discuss.Discuss">
+		<if test=" discussType == 1 ">
+			select 
+			k.act_no numb , k.disc_id discId ,k.source , k.content 
+			, k.relpy_content relpyContent 
+			, date_format(k.disc_tm ,'%Y-%c-%d %H:%i:%s') discTm 
+			, k.user_id userId , k.user_name userName , k.nick_name nickName
+			, k.is_del isDel
+			from kp_act_discuss k
+			where k.disc_id = #{discId}
+		</if>
+		<if test="discussType == 2 ">
+			select 
+			k.coll_no numb , k.disc_id discId ,k.source , k.content 
+			, k.relpy_content relpyContent 
+			, date_format(k.disc_tm ,'%Y-%c-%d %H:%i:%s') discTm 
+			, k.user_id userId , k.user_name userName , k.nick_name nickName
+			, k.is_del isDel
+			from kp_coll_discuss k
+			where k.disc_id = #{discId}
+		</if>
+		<if test="discussType == 3 ">
+			select 
+			k.video_id numb , k.disc_id discId ,k.source , k.content 
+			, k.relpy_content relpyContent 
+			, date_format(k.disc_tm ,'%Y-%c-%d %H:%i:%s') discTm 
+			, k.user_id userId , k.user_name userName , k.nick_name nickName
+			, k.is_del isDel
+			from kp_video_discuss k 
+			where k.disc_id = #{discId}
+		</if>
+	</select>
+
+	<!-- 删除讨论 -->
+	<update id="delDiscussByDiscId" parameterType="com.kaipai.ck.model.discuss.Discuss">
+		<if test=" discussType == 1 ">
+			update kp_act_discuss k set k.is_del = #{isDel} 
+			where k.disc_id = #{discId,jdbcType=BIGINT}
+		</if>
+		<if test="discussType == 2 ">
+			update kp_coll_discuss k set k.is_del = #{isDel} 
+			where k.disc_id = #{discId,jdbcType=BIGINT}
+		</if>
+		<if test="discussType == 3 ">
+			update kp_video_discuss k set k.is_del = #{isDel} 
+			where k.disc_id = #{discId,jdbcType=BIGINT}
+		</if>
+	</update>
+	
+</mapper>

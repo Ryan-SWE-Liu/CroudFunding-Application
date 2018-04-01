@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kaipai.ck.mapper.movie.MovieDividendMapper">
+	
+	<!-- 获取未分红电影 -->
+    <select id="getUnMovieDevidend" resultType="com.kaipai.ck.model.movie.MovieDividendModel" parameterType="map">
+    
+SELECT * FROM (
+		SELECT c.`mov_no` as movNo,c.`mov_name` as movName,SUM(a.`benf_amt`) as tranferAmt
+		  FROM kp_video_benfit_his a LEFT JOIN kp_movie_videos b 
+		ON a.`video_id` = b.`video_id`
+		LEFT JOIN kp_movies c ON b.`mov_no` = c.`mov_no`
+		WHERE c.mov_no IS NOT NULL AND a.`is_benfied` = '0'
+		GROUP BY c.`mov_no`,c.`mov_name`
+		) a
+			where 1=1
+			<if test="condition != null and condition !=''">
+				and ( a.movName like CONCAT('%',#{condition},'%')
+				or a.movNo like CONCAT('%',#{condition},'%') )
+			</if>
+			limit #{pageIndex},#{pageSize}
+	</select>
+	
+	<!-- 获取未分红电影总数 -->
+	 <select id="getUnMovieDevidendCount" resultType="int" parameterType="map">
+		SELECT count(1) FROM (
+		SELECT a.* FROM kp_video_benfit_his a LEFT JOIN kp_movie_videos b 
+		ON a.`video_id` = b.`video_id`
+		LEFT JOIN kp_movies c ON b.`mov_no` = c.`mov_no`
+		WHERE c.mov_no IS NOT NULL AND a.`is_benfied` = '0'
+		GROUP BY c.`mov_no`,c.`mov_name`
+		) a
+			where 1=1
+			<if test="condition != null and condition !=''">
+				and ( a.movName like CONCAT('%',#{condition},'%')
+				or a.movNo like CONCAT('%',#{condition},'%') )
+			</if>
+	</select>
+	
+	<!-- 根据项目编号获取未分红明细 -->
+	<select id="getUnMovieDevidendDetail" parameterType="String" resultType="com.kaipai.ck.model.movie.UserStkBonusHisModel">
+		SELECT i.`stock_code` AS stockCode, c.`mov_no` AS movNo,c.`mov_name` AS movName,SUM(a.`benf_amt`) AS bonusAmtTtl,i.`ttl_num` as ttlNum
+		FROM kp_video_benfit_his a LEFT JOIN kp_movie_videos b 
+		ON a.`video_id` = b.`video_id`
+		LEFT JOIN kp_movies c ON b.`mov_no` = c.`mov_no`
+		LEFT JOIN kp_trade_info i ON i.mov_no = c.mov_no
+		WHERE c.mov_no = #{movNo} AND a.`is_benfied` = '0'
+		GROUP BY i.`stock_code`,c.`mov_no`,c.`mov_name`
+	</select>
+	
+	<!-- 保存分红明细 -->
+	<insert id="insertUserStkBounsHis" parameterType="com.kaipai.ck.model.movie.UserStkBonusHisModel">
+		insert into kp_user_stk_bonus_his(pi_no,stock_code,user_id,stk_num,bonus_amt,bonus_amt_ttl,mov_no,state)
+		values(#{piNo},#{stockCode},#{userId},#{stkNum},#{bonusAmt},#{bonusAmtTtl},#{movNo},#{state})
+	</insert>
+	
+	<!-- 获取分红明细 列表-->
+	<select id="getUserStkBounsHisList" parameterType="map" resultType="com.kaipai.ck.model.movie.UserStkBonusHisModel">
+			SELECT a.id,a.pi_no AS piNo,a.stock_code AS stockCode,a.user_id AS userId,
+				a.stk_num AS stkNum,a.bonus_amt AS bonusAmt,a.bonus_amt_ttl AS bonusAmtTtl,
+				a.create_tm AS createTm,a.state,u.nick_name AS userName,a.`mov_no` AS movNo,
+				b.`mov_name` AS  movName
+			FROM kp_user_stk_bonus_his a 
+				LEFT JOIN kp_movies b ON b.`mov_no` = a.`mov_no`
+				LEFT JOIN kp_users u ON a.user_id = u.user_id
+				WHERE 1=1		
+			<if test="condition != null and condition !=''">
+				and ( b.mov_name like CONCAT('%',#{condition},'%')
+				or b.mov_no like CONCAT('%',#{condition},'%')
+				or u.nick_name like CONCAT('%',#{condition},'%')
+				 )
+			</if>
+			 <if test="startCreateTm != null and startCreateTm != ''">
+	        	AND create_tm  >= #{startCreateTm}
+	        </if>
+	         <if test="endCreateTm != null and endCreateTm !=''">
+	             AND create_tm  <![CDATA[<=]]> #{endCreateTm}
+	         </if>
+	         limit #{pageIndex},#{pageSize}
+	</select>
+	<!-- 获取分红明细 总数-->
+	<select id="getUserStkBounsHisCount" parameterType="map" resultType="int">
+		SELECT count(1)
+			FROM kp_user_stk_bonus_his a 
+				LEFT JOIN kp_movies b ON b.`mov_no` = a.`mov_no`
+				LEFT JOIN kp_users u ON a.user_id = u.user_id
+				WHERE 1=1	
+			<if test="condition != null and condition !=''">
+				and ( b.mov_name like CONCAT('%',#{condition},'%')
+				or b.mov_no like CONCAT('%',#{condition},'%')
+				or u.nick_name like CONCAT('%',#{condition},'%')
+				 )
+			</if>
+			 <if test="startCreateTm != null and startCreateTm != ''">
+	        	AND create_tm  >= #{startCreateTm}
+	        </if>
+	         <if test="endCreateTm != null and endCreateTm !=''">
+	             AND create_tm  <![CDATA[<=]]> #{endCreateTm}
+	         </if>
+	</select>
+	
+	<!-- 根据项目编号 获取分红明细 -->
+	<select id="getUserStkBounsHisByMovNo" parameterType="String" resultType="com.kaipai.ck.model.movie.UserStkBonusHisModel">
+		SELECT a.id,a.pi_no AS piNo,a.stock_code AS stockCode,a.user_id AS userId,
+				a.stk_num AS stkNum,a.bonus_amt AS bonusAmt,a.bonus_amt_ttl AS bonusAmtTtl,
+				a.create_tm AS createTm,a.state
+			FROM kp_user_stk_bonus_his a
+			WHERE b.`mov_no` = #{movNo}
+	</select>
+	
+	<!-- 修改分红明细 -->
+	<update id="updateUserStkBounsHis" parameterType="map">
+		update kp_user_stk_bonus_his
+		<set>
+			<if test="state != null and state !=''">
+				state = #{state},
+			</if>
+			<if test="isBenfied !=null and isBenfied !='' ">
+				is_benfied = #{isBenfied},
+			</if>
+		</set>
+		where pi_no = #{piNo} and state = #{state}
+	</update>
+	
+	<update id="updateVideoBenfitHis" parameterType="map">
+		UPDATE kp_video_benfit_his SET is_benfied = '1' 
+		WHERE video_id IN (SELECT a.`video_id` FROM  kp_movie_videos a WHERE a.mov_no = #{movNo})
+	</update>
+	
+	
+</mapper>

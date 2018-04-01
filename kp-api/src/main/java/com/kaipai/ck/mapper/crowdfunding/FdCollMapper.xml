@@ -1,0 +1,385 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kaipai.ck.mapper.crowdfunding.FdCollMapper">
+
+
+	<select id="getXQCollIsHaveByUserId" resultType="int">
+		select  
+			count(0)
+		from kp_collections kc
+		where kc.pub_user_id = #{userId}
+		and kc.coll_type = 'XQ' 
+		and kc.is_del = 0
+		and kc.coll_state in ('SALING','SALE_END'
+			,'FINISH','SHOWING','TRADING','DIVIDEND')
+	</select>
+	
+	<select id="getCollNoByMovieNo" resultType="String">
+		select  
+			kc.coll_no
+		from kp_collections kc
+		where kc.mov_no = #{movNo}
+		and kc.is_del = 0
+		<![CDATA[and kc.coll_state <> 'DRAFT']]>
+		order by kc.create_tm 
+		limit 1
+	</select>
+
+	<select id="getFdCollBenfitAmt" resultType="com.kaipai.ck.model.crowdfunding.FdCollBenfitModel">
+		select  
+			kc.ev_amt evAmt,
+			kc.float_amt floatAmt
+		from kp_coll_benfit kc
+		where kc.coll_no = #{collNo}
+		and kc.state = 1
+		order by kc.ev_amt 
+		limit 1
+	</select>
+	
+
+	<select id="getCollCountsData" resultType="com.kaipai.ck.model.crowdfunding.FdCollModel">
+		select
+			kc.coll_state state,
+			kc.coll_ed collEd,
+			<if test="userId != null and userId != ''">
+			(select count(0) from kp_movie_focus kmf where kmf.mov_no = kc.mov_no
+				and kmf.user_id = #{userId} and kmf.is_vaild = 1) isFocus,
+			(select count(0) from kp_coll_praises kcp where kcp.coll_no = kc.coll_no
+				and kcp.user_id = #{userId} and kcp.is_del = 0) isPraises,
+			</if>
+			(select count(0) from kp_coll_praises kcp where kcp.coll_no = kc.coll_no and kcp.is_del = 0) praisesCounts,
+			(select count(0) from kp_movie_discuss kcd where kcd.mov_no = kc.mov_no and kcd.is_del = 0) discussCounts,
+			(select count(0) from kp_movie_news kmn where kmn.mov_no = kc.mov_no) newsCounts,
+			(select count(0) from kp_movie_focus kmf where kmf.mov_no = kc.mov_no and kmf.is_vaild = 1) focusCounts
+			
+		from kp_collections kc
+		where kc.coll_no = #{collNo}
+	</select>
+
+	<select id="getCollUgcInfo" resultType="com.kaipai.ck.model.fd.ChUgcModel">
+		select
+			vc.coll_no refProNo,
+			vc.ch_id chId,
+			vc.ugc_id ugcId
+		FROM kp_coll_chs vc 
+		where 1=1
+		<if test="collNo != null and collNo != ''">
+			and vc.coll_no=#{collNo}
+		</if>
+		<if test="chId != null and chId != ''">
+			and vc.ch_id=#{chId}
+		</if>
+		<if test="ugcId != null and ugcId != ''">
+			and vc.ugc_id=#{ugcId}
+		</if>
+	</select>
+
+	<!-- Fd查询用户是否购买该众筹 -->
+	<select id="getFdCollUserIsBy" resultType="int">
+		select  
+			count(0)
+		from kp_user_coll_list kc
+		where kc.coll_no = #{collNo} and kc.user_id =#{userId}
+	</select>
+
+	<!-- Fd查询众筹列表model -->
+	<select id="getFdCollListModelInfo" resultType="com.kaipai.ck.model.crowdfunding.FdCollModel">
+		select  
+			kc.coll_no collNo,
+			kc.coll_name title,
+			kc.coll_desc collDesc,
+			kc.mv_desc_pc mvDescH5,
+			kc.coll_state state,
+			kc.coll_img_url_pc as detailImgUrl,
+			kc.coll_type as collType ,
+			kc.create_tm as createTm,
+			kc.coll_st as collSt,
+			kc.coll_ed as collEd,
+			kc.pub_user_id as userId,
+			kc.ttl_amt as ttlAmt,
+			kc.mov_no as movNo,
+			kc.coll_source as collSurce,
+			kc.coll_tag as collTagName,
+			(TO_DAYS(kc.coll_ed)-TO_DAYS(SYSDATE())) as surplusTime,
+			(SELECT count(kucl.user_id) FROM kp_user_coll_list kucl WHERE 
+				kucl.coll_no = kc.coll_no and kucl.state > 0 ) AS raisedUsers,
+			IFNULL((
+				SELECT
+					SUM(m.git_num)
+				FROM
+					kp_user_coll_list m
+				WHERE
+					m.state > 0
+				and	m.coll_no = kc.coll_no
+			),0) AS raisedNum,
+			(select sum(kcb.benfit_size) from kp_coll_benfit kcb where kcb.coll_no = kc.coll_no and kcb.state =1) ttlNum,
+			IFNULL((
+				SELECT
+					SUM(m.money)
+				FROM
+					(
+						SELECT
+							kcc.coll_no AS coll_no,
+							kuc.ev_amt * kuc.git_num AS money
+						FROM
+							kp_collections kcc
+						RIGHT JOIN kp_user_coll_list kuc ON kuc.coll_no = kcc.coll_no
+					) m
+				WHERE
+					m.coll_no = kc.coll_no
+			),'0') AS raisedAmount,
+			<if test="userId != null and userId != ''">
+			(select count(0) from kp_coll_praises kcp where kcp.coll_no = kc.coll_no
+				and kcp.user_id = #{userId} and kcp.is_del = 0) isPraises,
+			</if>
+			(select count(0) from kp_coll_praises kcp where kcp.coll_no = kc.coll_no and kcp.is_del = 0) praisesCounts,
+			(select count(0) from kp_movie_discuss kcd where kcd.mov_no = kc.mov_no and kcd.is_del = 0) discussCounts
+			
+		from kp_collections kc
+		where kc.coll_no = #{collNo}
+		<if test="relUgc != null and relUgc != ''">
+			and kc.coll_state in ('BESPOKE','BESPOKE_END','SALING','SALE_END'
+			,'FINISH','SHOWING','TRADING','DIVIDEND')
+		</if>
+	</select>
+	
+	<!-- Fd众筹列表 -->
+	<select id="getFdCollListPage" resultType="com.kaipai.ck.model.crowdfunding.FdCollModel" parameterType="hashmap">
+		select n.* from (
+			select t.*,@rownum:=@rownum+1 as ranking from
+			 (select @rownum:=0) n , (
+				select  
+					kc.coll_no collNo,
+					kc.coll_name title,
+					kc.coll_desc collDesc,
+					kc.mv_desc_pc mvDescH5,
+					kc.coll_state state,
+					kc.coll_img_url_pc as detailImgUrl,
+					kc.coll_type as collType ,
+					kc.create_tm as createTm,
+					kc.coll_st as collSt,
+					kc.coll_ed as collEd,
+					kc.pub_user_id as userId,
+					kc.ttl_amt as ttlAmt,
+					kc.mov_no as movNo,
+					kc.coll_source as collSurce,
+					kc.coll_tag as collTagName,
+					(
+						SELECT
+							count(kucl.user_id)
+						FROM
+							kp_user_coll_list kucl
+						WHERE
+							kucl.coll_no = kc.coll_no
+							and kucl.state >0
+					) AS raisedUsers,
+					IFNULL((
+						SELECT
+							SUM(m.git_num)
+						FROM
+							kp_user_coll_list m
+						WHERE
+							m.state > 0
+						and	m.coll_no = kc.coll_no
+					),0) AS raisedNum,
+					(select sum(kcb.benfit_size) from kp_coll_benfit kcb where kcb.coll_no = kc.coll_no and kcb.state =1) ttlNum,
+					IFNULL((
+						SELECT
+							SUM(m.money)
+						FROM
+							(
+								SELECT
+									kcc.coll_no AS coll_no,
+									kuc.ev_amt * kuc.git_num AS money
+								FROM
+									kp_collections kcc
+								RIGHT JOIN kp_user_coll_list kuc ON kuc.coll_no = kcc.coll_no
+							) m
+						WHERE
+							m.coll_no = kc.coll_no
+					),'0') AS raisedAmount,
+					(TO_DAYS(kc.coll_ed)-TO_DAYS(SYSDATE())) as surplusTime,
+					ch.ch_id as chId,
+					ch.ugc_id as ugcId
+					
+				from kp_collections kc
+				left join kp_coll_chs ch on kc.coll_no = ch.coll_no
+				where 1=1 and kc.is_del = '0'
+				<if test="myUserId != null and myUserId != ''">
+					and kc.pub_user_id =#{myUserId}
+					
+			  		 <if test="null==state or state==''">
+			  			<!-- and kc.coll_state in ('DRAFT','BESPOKE','BESPOKE_END','SALING','SALE_END','SHOWING','TRADING',,'FINISH') -->
+			  		 </if>
+				</if>
+				<if test="chId != null and chId != ''">
+					and ch.ch_id = #{chId}
+				</if>
+				<if test="title != null and title != ''">
+					and kc.coll_name like '%${title}%'
+				</if>
+				<if test="state != null and state != ''">
+					and kc.coll_state = #{state}
+				</if>
+				<if test="myUserId == null or myUserId == ''">
+			  		 <if test="null==state or state==''">
+			  			and kc.coll_state in ('BESPOKE','BESPOKE_END','SALING','SALE_END','SHOWING','TRADING','DIVIDEND','FINISH')
+			  		 </if>
+				</if>
+				<if test="collSource != null and collSource != ''">
+					and kc.coll_source = #{collSource}
+				</if>
+				<if test="collType != null and collType != ''">
+					and kc.coll_type = #{collType}
+				</if>
+				<if test="lastTm != null and lastTm != ''">
+					 <![CDATA[ and kc.create_tm < #{lastTm} ]]>
+				</if>
+				order by kc.order_no,kc.create_tm desc
+			) t
+		) n
+		<if test="ranking != null and ranking != ''">
+			<![CDATA[ where n.ranking > #{ranking} ]]>
+		</if>
+		limit
+		<if test="index != null and index != ''">
+			#{index},
+		</if>
+			#{rows}
+	</select>
+	
+	
+	<!-- Fd众筹详情 -->
+	<select id="getFdCollInfo" resultType="com.kaipai.ck.model.crowdfunding.FdCollModel">
+		select  
+			kc.coll_no collNo,
+			kc.coll_name title,
+			kc.coll_desc collDesc,
+			kc.mv_desc_pc mvDescH5,
+			kc.coll_state state,
+			kc.coll_img_url_pc as detailImgUrl,
+			kc.coll_type as collType ,
+			kc.create_tm as createTm,
+			kc.coll_st as collSt,
+			kc.coll_ed as collEd,
+			kc.pub_user_id as userId,
+			kc.ttl_amt as ttlAmt,
+			kc.mov_no as movNo,
+			kc.coll_source as collSurce,
+			kc.coll_tag as collTagName,
+			(
+				SELECT
+					count(kucl.user_id)
+				FROM
+					kp_user_coll_list kucl
+				WHERE
+					kucl.coll_no = kc.coll_no
+					and kucl.state > 0
+			) AS raisedUsers,
+			IFNULL((
+				SELECT
+					ifnull(SUM(m.git_num),0)
+				FROM
+					kp_user_coll_list m
+				WHERE
+					m.state > 0
+				and	m.coll_no = kc.coll_no
+			),0) AS raisedNum,
+			(select sum(kcb.benfit_size) from kp_coll_benfit kcb where kcb.coll_no = kc.coll_no and kcb.state =1) ttlNum,
+			IFNULL((
+				SELECT
+					SUM(m.money)
+				FROM
+					(
+						SELECT
+							kcc.coll_no AS coll_no,
+							kuc.ev_amt * kuc.git_num AS money
+						FROM
+							kp_collections kcc
+						RIGHT JOIN kp_user_coll_list kuc ON kuc.coll_no = kcc.coll_no
+					) m
+				WHERE
+					m.coll_no = kc.coll_no
+			),'0') AS raisedAmount,
+			(TO_DAYS(kc.coll_ed)-TO_DAYS(SYSDATE())) as surplusTime,
+			
+			<if test="userId != null and userId != ''">
+			(select count(0) from kp_movie_focus kmf where kmf.mov_no = kc.mov_no
+				and kmf.user_id = #{userId} and kmf.is_vaild = 1) isFocus,
+			(select count(0) from kp_coll_praises kcp where kcp.coll_no = kc.coll_no
+				and kcp.user_id = #{userId} and kcp.is_del = 0) isPraises,
+			</if>
+			(select mt.name from system_domain_value mt where domain_code='UGC_COLL_TYPE' and mt.code = kc.coll_tag) collTagName,
+			(select count(0) from kp_coll_praises kcp where kcp.coll_no = kc.coll_no and kcp.is_del = 0) praisesCounts,
+			(select count(0) from kp_movie_discuss kcd where kcd.mov_no = kc.mov_no and kcd.is_del = 0) discussCounts,
+			(select count(0) from kp_movie_news kmn where kmn.mov_no = kc.mov_no) newsCounts,
+			(select count(0) from kp_movie_focus kmf where kmf.mov_no = kc.mov_no and kmf.is_vaild = 1) focusCounts,
+			
+			(select ti.stock_code from kp_trade_info ti where ti.coll_id = kc.coll_no) as stockCode
+			
+		from kp_collections kc
+		where kc.coll_no = #{collNo}
+	</select>
+	
+	
+
+	<delete id="deleteCollChs" parameterType="long">
+		delete from kp_coll_chs where ugc_id = #{ugcId}
+	</delete>
+	<delete id="deleteCollByUgcId" parameterType="long">
+		delete from kp_collections where coll_no = (
+			select coll_no from kp_coll_chs where ugc_id = #{ugcId})
+	</delete>
+	
+	<!-- 添加粉豆圈频道众筹关联 -->
+	<insert id="insertCollChs" >
+		insert into 
+		kp_coll_chs(
+		  coll_no,
+  		  ch_id,
+  		  ugc_id
+		)
+		values(
+		#{collNo},
+		#{chId},
+		#{ugcId}
+		)
+	</insert>
+	
+	<update id="updateCollChs">
+		update kp_coll_chs 
+		set ch_id = #{chId}
+		where coll_no = #{collNo}
+	</update>
+	
+	<insert id="createCollPraises" >
+		INSERT INTO kp_coll_praises (
+			coll_no,
+			source,
+			praise_tm,
+			user_id,
+			user_name,
+			nick_name,
+			is_del
+			) SELECT
+			#{collNo},
+			#{source},
+			SYSDATE(),
+			user_id,
+			user_name,
+			nick_name,
+			0
+			FROM
+				kp_users
+			WHERE
+				user_id = #{userId}
+	</insert>
+	<!-- 取消点赞 -->
+	<delete id="updateCollPraises">
+		delete from kp_coll_praises where coll_no = #{collNo} and user_id = #{userId}
+	</delete>
+	
+	
+</mapper>

@@ -1,0 +1,1437 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kaipai.ck.mapper.crowdfunding.CrowdfundindMapper">
+
+	<!-- 星主页APP我的认购记录 -->
+	<select id="getMyCollMovieBeatList" resultType="com.kaipai.ck.model.movie.UserCollMovieModel" parameterType="hashmap">
+		select  
+			kucl.collNo,
+			kucl.gitNum,
+			kucl.gitTm,
+			kucl.evAmt numberAmt, 
+			kucl.evAmt*kucl.gitNum evAmt, 
+			kucl.coll_ben_id collBenId,
+			kc.coll_state collState,
+		 	km.mov_no AS movNo,        
+			km.mov_name as movName
+		from (
+		select coll_ben_id, coll_no collNo,git_num gitNum,
+		ev_amt evAmt,git_tm gitTm from kp_user_coll_list 
+		where user_id = #{userId} and state > 0 and coll_no=#{collNo}
+		) kucl
+		left join kp_collections kc on kucl.collNo = kc.coll_no
+		left join kp_movies km on kc.mov_no = km.mov_no
+		
+	</select>
+	
+	<!-- 星主页APP我的认购项目详情 -->
+	<select id="getMyCollMovieByUserIdAndCollNo" resultType="com.kaipai.ck.model.movie.UserCollMovieModel" parameterType="hashmap">
+			select  
+			kucl.collNo,
+			kucl.gitNum,
+			kucl.evAmt evAmt,
+			kc.coll_state collState,
+			IFNULL(km.list_pic_url,kc.`coll_img_url`) listPicUrl,
+		 	km.mov_no AS movNo,        
+			ifnull(km.mov_name,kc.`coll_name`) as movName,	
+			sum(kcb.benfit_size) benfitSize,
+			kcb.ev_amt numberAmt,
+			sum(kcb.benfit_size*kcb.ev_amt) becfitSum
+		from (
+			select 
+				cl.coll_ben_id, cl.coll_no collNo,sum(cl.git_num) gitNum,sum(cl.ev_amt*cl.git_num) evAmt,max(cl.git_tm) gitTm  
+			from 
+				kp_user_coll_list cl
+			where 
+				cl.user_id=#{userId} and cl.state > 0 and cl.coll_no = #{collNo}
+			group by cl.coll_no
+		) kucl
+		left join kp_collections kc on kucl.collNo = kc.coll_no
+		left join kp_coll_benfit kcb on kucl.collNo = kcb.coll_no and kcb.state = '1'
+		left join kp_movies km on kc.mov_no = km.mov_no
+	</select>
+	
+	<!-- 星主页APP我的认购项目列表 -->
+	<select id="getMyCollMovieByUserId" resultType="com.kaipai.ck.model.movie.UserCollMovieModel" parameterType="hashmap">
+		select  
+			kucl.collNo,
+			kucl.gitNum,
+			kucl.evAmt evAmt, 
+			kucl.gitTm,
+			kc.coll_state collState,
+			IFNULL(km.list_pic_url,kc.`coll_img_url`) listPicUrl,
+		 	km.mov_no AS movNo,        
+			ifnull(km.mov_name,kc.`coll_name`) as movName
+		from (
+			select cl.coll_no collNo,sum(cl.git_num) gitNum,
+				sum(cl.ev_amt*cl.git_num) evAmt,max(cl.git_tm) gitTm  
+			from 
+				kp_user_coll_list cl
+			left join 
+				kp_coll_benfit kcb on cl.coll_ben_id = kcb.coll_ben_id and kcb.state='1'
+			where 
+				cl.user_id=#{userId} and cl.state > 0 and cl.coll_no is not null
+		group by cl.coll_no
+		) kucl
+		left join kp_collections kc on kucl.collNo = kc.coll_no
+		left join kp_movies km on kc.mov_no = km.mov_no
+		 
+			<!-- km.mov_no is not null -->
+		<if test="lastTm != null and lastTm != ''">
+			 <![CDATA[ where kucl.gitTm < #{lastTm} ]]>
+		</if>
+			order by kucl.gitTm desc
+		<if test="size != null and size != ''">
+			limit #{size}
+		</if>
+	</select>
+	
+	<!-- 星主页众筹查询众筹详情 -->
+	<select id="selectXfAppCollInfo" parameterType="hashmap" resultType="com.kaipai.ck.model.crowdfunding.XfAppCrowdfundingModel">
+		SELECT
+			kc.coll_no as collNo,
+			kc.coll_state AS status,
+			kc.coll_st as collStartTm,
+			kc.coll_ed as collStopTm,
+			kc.bespeak_st as bespeakSt,
+			kc.bespeak_ed as bespeakEd,
+			(
+				SELECT
+					count(distinct(kucl.user_id))
+				FROM
+					kp_user_coll_list kucl
+				WHERE
+					kucl.coll_no = kc.coll_no
+					and kucl.state > 0
+			) AS raisedUsers,
+			IFNULL((
+				SELECT
+					SUM(m.git_num)
+				FROM
+					kp_user_coll_list m
+				WHERE
+					m.state > 0
+				and	m.coll_no = kc.coll_no
+			),0) AS raisedNum,
+			(select sum(kcb.benfit_size) from kp_coll_benfit kcb where kcb.coll_no = kc.coll_no and kcb.state =1) ttlNum,
+			(select kcb.coll_ben_id from kp_coll_benfit kcb where kcb.coll_no = kc.coll_no and kcb.state =1 order by kcb.create_tm desc limit 1) collBenId,
+			(select count(0) from kp_coll_bespeak kcb where kcb.coll_no = kc.coll_no) bspeakCounts,
+			(select count(0) from kp_coll_bespeak kcb where kcb.coll_no = kc.coll_no and kcb.user_id = #{userId}) isBespeak
+		FROM kp_collections kc
+		WHERE kc.coll_no = #{collNo}
+	</select>
+	
+	<select id="findUserHavePayForColl" resultType="int">
+		select 
+			count(0) 
+		from 
+			kp_user_coll_list 
+		where
+			coll_no = #{collNo} and user_id = #{userId}
+			
+	</select>
+	
+	
+	<!-- 查询众筹列表 -->
+	<select id="findCrowdfunds" resultType="com.kaipai.ck.model.crowdfunding.CrowdfundingModel" parameterType="hashmap">
+		 	SELECT
+			kc.coll_no AS id,
+			kc.coll_name AS name,
+			kc.coll_state AS status,
+			kc.coll_img_url as coverUrl,
+			kc.coll_img_url_pc as coverUrlPc,
+			kc.pay_next_url as payNextUrl,
+			kc.coll_desc as collDesc,
+			kc.coll_ed as collStopTm,
+			TO_DAYS(kc.coll_ed)-TO_DAYS(SYSDATE()) as surplusTime,
+			kc.ttl_amt as ttlAmt,
+			
+			<!-- 已筹总额 -->
+			IFNULL((
+				SELECT
+					SUM(m.money)
+				FROM
+					(
+						SELECT
+							kcc.coll_no AS coll_no,
+							kuc.ev_amt * kuc.git_num AS money
+						FROM
+							kp_collections kcc
+						RIGHT JOIN kp_user_coll_list kuc ON kuc.coll_no = kcc.coll_no
+					) m
+				WHERE
+					m.coll_no = kc.coll_no
+			),'0') AS raisedAmount,
+			
+			
+			<if test="userId != null and userId != ''">
+			
+			IFNULL((select sum(kucl2.ev_amt * kucl2.git_num) from kp_user_coll_list kucl2 where kucl2.coll_no=kc.coll_no and kucl2.user_id = #{userId} ),0) as myAmount,
+			
+			</if>
+			
+			<!-- 完成度 -->
+			IFNULL(
+			TRUNCATE (
+				(
+					(SELECT sum(kuc.git_num*kuc.ev_amt)FROM kp_user_coll_list  kuc WHERE kuc.coll_no = kc.coll_no) / 
+					kc.ttl_amt
+				) * 100,2
+			),'0') AS completePc
+		FROM
+			kp_collections kc
+		WHERE
+			kc.is_del = 0
+		 <if test="null != userId and userId !=''">
+  			and kc.coll_no in (select kco.coll_no from 
+			(select co.coll_no,ko.user_id from kp_order_collection co,kp_orders ko where co.order_no = ko.order_no and ko.user_id = #{userId}) kco )
+  		 </if>
+		 <if test="null!=status and status!=''">
+  			and kc.coll_state=#{status}
+  		 </if>
+  		 <if test="null==status or status==''">
+  			and kc.coll_state in ('SALING','SALE_END','BESPOKE')
+  		 </if>
+		limit #{pageIndex},#{pageSize}	
+	</select>
+	
+	<select id="appFindCrowdfunds" resultType="com.kaipai.ck.model.crowdfunding.CrowdfundingModel" parameterType="hashmap">
+		 	SELECT
+			kc.coll_no AS id,
+			kc.coll_name AS name,
+			kc.coll_state AS status,
+			kc.coll_img_url as coverUrl,
+			kc.coll_img_url_pc as coverUrlPc,
+			kc.share_pic_url as sharePicUrl,
+			kc.pay_next_url as payNextUrl,
+			kc.coll_st as collStartTm,
+			kc.coll_ed as collStopTm,
+			TO_DAYS(kc.coll_ed)-TO_DAYS(SYSDATE()) as surplusTime,
+			kc.ttl_amt as ttlAmt,
+			<!-- 已筹总额 -->
+			IFNULL((
+				SELECT
+					SUM(m.money)
+				FROM
+					(
+						SELECT
+							kcc.coll_no AS coll_no,
+							kuc.ev_amt * kuc.git_num AS money
+						FROM
+							kp_collections kcc
+						RIGHT JOIN kp_user_coll_list kuc ON kuc.coll_no = kcc.coll_no
+					) m
+				WHERE
+					m.coll_no = kc.coll_no
+			),'0') AS raisedAmount,
+			<if test="userId != null and userId != ''">
+			IFNULL((select sum(kucl2.ev_amt * kucl2.git_num) from kp_user_coll_list kucl2 where kucl2.coll_no=kc.coll_no and kucl2.user_id = #{userId} ),0) as myAmount,
+			</if>
+			<!-- 完成度 -->
+			IFNULL(
+			TRUNCATE (
+				(
+					(SELECT sum(kuc.git_num*kuc.ev_amt)FROM kp_user_coll_list  kuc WHERE kuc.coll_no = kc.coll_no) / 
+					kc.ttl_amt
+				) * 100,2
+			),'0') AS completePc
+		FROM
+			kp_collections kc
+		WHERE
+			kc.is_del = 0
+		 <if test="null != userId and userId !=''">
+  			and kc.coll_no in (select kco.coll_no from 
+			(select co.coll_no,ko.user_id from kp_order_collection co,kp_orders ko where co.order_no = ko.order_no and ko.user_id = #{userId}) kco )
+  		 </if>
+  		 <if test="lastTm != null">
+  		 <![CDATA[
+  		 	and to_days(kc.coll_st) < to_days(#{lastTm})
+  		 ]]>
+  		 </if>
+		 <if test="null!=status and status!=''">
+  			and kc.coll_state=#{status}
+  		 </if>
+  		 <if test="null==status or status==''">
+  			and kc.coll_state in ('SALING','SALE_END','BESPOKE')
+  		 </if>
+  		 order by kc.coll_state 
+		limit #{pageSize}	
+	</select>
+	
+	<select id="xfappFindCollList" parameterType="map" resultType="com.kaipai.ck.model.crowdfunding.XfAppCollModel">
+		select u.* from (
+		select @rownum:=@rownum+1 as ranking,t.* from (
+			select  @rownum:=0,kc.coll_no as collNo,
+			   kc.coll_img_url as picUrl,
+			   kc.coll_img_url_pc as imgUrlHOR,
+			   kc.coll_state as state,
+			   kc.bespeak_st as openTm,
+			   kc.coll_name as collName,
+			   kc.mov_no as movNo,
+			   kc.next_repay_tm as nextDividentDate,
+			   (select ifnull(sum(kcb.benfit_size),0) from kp_coll_benfit kcb where kc.coll_no = kcb.coll_no and kcb.state='1') as issuanceAmount,
+			   (select count(0) from kp_movie_focus kmf where kc.mov_no = kmf.mov_no and kmf.is_vaild = '1') as focus,
+			   (select count(0) from kp_user_coll_list kucl where kc.coll_no = kucl.coll_no and kucl.state > 0) supporters,
+			   (select ifnull(sum(kucl.git_num),0) from kp_user_coll_list kucl where kc.coll_no = kucl.coll_no and kucl.state = '1') supportNum,
+			   kc.create_tm as createTm
+			 from kp_collections kc
+			 left join kp_movies km on kc.mov_no = km.mov_no
+			 <if test="movType != null and movType != '' and movType !='ALL'.toString()">
+			 	left join kp_movie_sorts kms on kc.mov_no = kms.mov_no
+			 </if>
+		<where>
+			kc.is_del = '0'
+			<choose>
+				<when test="type == 'INDEX'.toString()">
+					and (kc.coll_state = 'BESPOKE' or kc.coll_state='BESPOKE_END' or kc.coll_state='SALING' or kc.coll_state='SALE_END'
+					or kc.coll_state='TRADING' or kc.coll_state='DIVIDEND' or kc.coll_state='FINISH')
+				</when>
+				<when test="type=='BESPOKE'.toString()">
+					and (kc.coll_state = 'BESPOKE' or kc.coll_state = 'BESPOKE_END')
+				</when>
+				<when test="type=='SALING'.toString()">
+					and (kc.coll_state = 'SALING' or kc.coll_state = 'SALE_END')
+				</when>
+				<when test="type=='TRADING'.toString()">
+					and kc.coll_state = 'TRADING'
+				</when>
+				<when test="type=='DIVIDEND'.toString()">
+					and kc.coll_state = 'DIVIDEND'
+				</when>
+				<when test="type=='FINISH'.toString()">
+					and kc.coll_state = 'FINISH'
+				</when>
+				<when test="movType == 'ALL'.toString()">
+					and (kc.coll_state = 'BESPOKE' or kc.coll_state='BESPOKE_END' or kc.coll_state='SALING' or kc.coll_state='SALE_END'
+					or kc.coll_state='TRADING' or kc.coll_state='DIVIDEND' or kc.coll_state='FINISH' or kc.coll_state='SHOWING')
+				</when>
+				<when test="movType!=null and movType!='' and movType!='ALL'.toString()">
+					and kms.mov_sort_code = #{movType} and (kc.coll_state = 'BESPOKE' or kc.coll_state='BESPOKE_END' or kc.coll_state='SALING' or kc.coll_state='SALE_END'
+					or kc.coll_state='TRADING' or kc.coll_state='DIVIDEND' or kc.coll_state='FINISH' or kc.coll_state='SHOWING')
+				</when>
+			</choose>
+			<if test="status == 'DOING'.toString()">
+				and (kc.coll_state = 'BESPOKE' or kc.coll_state='BESPOKE_END' or kc.coll_state='SALING' or kc.coll_state='SALE_END'
+				or kc.coll_state='TRADING' or kc.coll_state='DIVIDEND' or kc.coll_state='FINISH')
+			</if>
+			<if test="status == 'SHOWING'.toString()">
+				and kc.coll_state = 'SHOWING'
+			</if>
+		</where>
+		
+		<if test="lastTm != null and lastTm != ''">
+			<![CDATA[
+				and kc.create_tm < #{lastTm}
+			]]>
+		</if>
+		group by collNo
+		order by 
+		<if test="lastTm == null or ranking == null">
+			kc.order_no,
+		</if>
+		 kc.create_tm desc
+		 ) t )u
+		 <if test="ranking != null and ranking != ''">
+		 	where u.ranking > #{ranking}
+		 </if>
+		limit #{rows}
+	</select>
+	
+	<!-- 众筹列表详情 -->
+	<select id="findCrowdfundsDetail" resultType="com.kaipai.ck.model.crowdfunding.CrowdfundingModel" parameterType="hashmap">
+			SELECT
+			kc.coll_no AS id,
+			kc.coll_name AS name,
+			kc.coll_short_title as collShortTitle,
+			kc.mov_no as movNo,
+			kc.coll_state AS status,
+			kc.coll_img_url as coverUrl,
+			kc.coll_img_url_pc as coverUrlPc,
+			kc.share_pic_url as sharePicUrl,
+			
+			kc.mv_desc_pc as projectDetail,
+			kc.mv_desc_pc as projectDetail_PC,
+			kc.coll_desc as benfitDesc,
+			kc.coll_desc as collDescApp,
+			kc.coll_desc as collDesc,
+			kc.pay_next_url as payNextUrl,
+			kc.coll_st as collStartTm,
+			kc.coll_ed as collStopTm,
+			kc.ttl_amt as ttlAmt,
+			kc.coll_type as collType,
+			TO_DAYS(kc.coll_ed)-TO_DAYS(SYSDATE()) as surplusTime,
+			(
+				SELECT
+					count(distinct(kucl.user_id))
+				FROM
+					kp_user_coll_list kucl
+				WHERE
+					kucl.coll_no = kc.coll_no
+			) AS contribuTers,
+			IFNULL((
+				SELECT
+					SUM(m.money)
+				FROM
+					(
+						SELECT
+							kuc.coll_no AS coll_no,
+							kuc.ev_amt * kuc.git_num AS money
+						FROM kp_user_coll_list kuc 
+					) m
+				WHERE
+					m.coll_no = kc.coll_no
+			),0) AS raisedAmount,
+			IFNULL(
+			TRUNCATE (
+				(
+					(SELECT sum(kuc.git_num*kuc.ev_amt)FROM kp_user_coll_list  kuc WHERE kuc.coll_no = kc.coll_no) / 
+					kc.ttl_amt
+				) * 100,2
+			),'0') AS completePc,
+			IFNULL(count(kpp.coll_no),0) as likes,
+			IFNULL(SUM(round(kuc.ev_amt / 100, 2) * kuc.git_num),0) AS collMoney,
+			
+			<if test="userId != null and userId != ''">
+			
+			IFNULL((select sum(kucl2.ev_amt * kucl2.git_num) from kp_user_coll_list kucl2 where kucl2.coll_no=kc.coll_no and kucl2.user_id = #{userId} ),0) as myAmount,
+			
+			</if>
+			
+			(select COUNT(0) from kp_coll_praises kppp WHERE kppp.user_id=#{userId} and kppp.coll_no=#{id}) as isLiked
+			
+		FROM
+			kp_collections kc
+		LEFT JOIN kp_coll_praises kpp ON kc.coll_no = kpp.coll_no
+		LEFT JOIN kp_movies km ON kc.mov_no = km.mov_no
+		LEFT JOIN (
+					SELECT
+						*
+					FROM
+						kp_user_coll_list kucl
+					WHERE
+						kucl.state = 'OK'
+				) kuc ON kuc.coll_no = kc.coll_no
+		WHERE kc.coll_no = #{id}
+	</select>
+	
+	<!-- 分页出资人列表记录 -->
+	<select id="findContributionsPage" resultType="com.kaipai.ck.model.crowdfunding.CollContributionModel" parameterType="hashmap">
+	select 
+		t.* 
+	from (
+		select 
+			@rownum:=@rownum+1 as rownum,
+			kuc.user_id as userId, 
+			A.contributiveAmount, 
+			date_format(A.gitTm,'%Y-%m-%d %T') gitTm,
+			kuc.auth_flg as isAuth,
+			if(A.nick_name is null or A.nick_name = '',kuc.nick_name,A.nick_name) nickName,
+			if(A.icon_url is null or A.icon_url = '',kuc.icon_url,A.icon_url) iconUrl
+		from 
+			(select @rownum:=0) t, (select 
+										cl.user_id,
+										cl.nick_name,
+										cl.icon_url,
+										min(cl.git_tm) gitTm ,
+										sum(cl.ev_amt*cl.git_num) as contributiveAmount,
+										sum(cl.git_num) as git
+									from 
+										kp_user_coll_list cl
+									where 
+										cl.coll_no=#{collNo} and cl.state > 0 group by cl.user_id) A 
+									INNER JOIN 
+										kp_users kuc on kuc.user_id=A.user_id
+									order by 
+										A.contributiveAmount desc
+		 ) t 
+	limit 
+		#{index} ,#{size}
+	</select>
+	
+	
+	<!-- 出资人列表记录 -->
+	<select id="findContributions" resultType="com.kaipai.ck.model.crowdfunding.CollContributionModel" parameterType="string">
+		select 
+		@rownum:=@rownum+1 as rownum,
+		kuc.user_id as userId, 
+		A.contributiveAmount, 
+		A.git,
+		date_format(A.gitTm,'%Y-%m-%d %T') gitTm,
+		kuc.auth_flg as isAuth,
+		if(A.nick_name is null or A.nick_name = '',kuc.nick_name,A.nick_name) nickName,
+		if(A.icon_url is null or A.icon_url = '',kuc.icon_url,A.icon_url) iconUrl
+		from (select @rownum:=0) t, (
+		select 
+			user_id,
+			nick_name,
+			icon_url,
+			max(git_tm) gitTm ,
+			sum(ev_amt*git_num) contributiveAmount,
+			sum(git_num) as git 
+		from kp_user_coll_list
+		where coll_no=#{collNo} and state > 0 group by user_id
+		) A 
+		INNER JOIN kp_users kuc on kuc.user_id=A.user_id
+		order by A.contributiveAmount desc
+		 
+	</select>
+	
+	<!-- 获取出资人详细列表 -->
+	<select id="findCollRankAll" resultType="com.kaipai.ck.model.crowdfunding.CollContributionModel" parameterType="hashmap">
+	select t.*,t.userId rank,t.userId rownum from (
+		select 
+				@rownum:=@rownum+1 as userId,
+				A.contributiveAmount, 
+				A.git,
+				date_format(A.gitTm,'%Y-%m-%d %T') gitTm,
+				kuc.auth_flg as isAuth,
+				if(A.nick_name is null or A.nick_name = '',kuc.nick_name,A.nick_name) nickName,
+				if(A.icon_url is null or A.icon_url = '',kuc.icon_url,A.icon_url) iconUrl
+				from (select @rownum:=0) t, (
+				select 
+					user_id,
+					nick_name,
+					icon_url,
+					git_tm gitTm ,
+					(ev_amt*git_num) contributiveAmount,
+					git_num as git 
+				from kp_user_coll_list
+				where coll_no=#{collNo} and state > 0 
+				) A 
+				INNER JOIN kp_users kuc on kuc.user_id=A.user_id
+				order by A.contributiveAmount desc
+		) t
+		<if test="rank!=null and rank!=''">
+		where t.userId > #{rank}
+		</if>
+		limit #{size}
+	</select>
+	
+	
+	<insert id="createLikes" parameterType="com.kaipai.ck.model.crowdfunding.CrowdfundingModel" >
+		INSERT INTO kp_coll_praises (
+			coll_no,
+			source,
+			praise_tm,
+			user_id,
+			user_name,
+			nick_name,
+			is_del
+			) SELECT
+			#{no},
+			#{source},
+			SYSDATE(),
+			user_id,
+			user_name,
+			nick_name,
+			0
+			FROM
+				kp_users
+			WHERE
+				user_id = #{userId}
+	</insert>
+	<!-- 取消点赞 -->
+	<delete id="updateLikes" parameterType="com.kaipai.ck.model.crowdfunding.CrowdfundingModel">
+		delete from kp_coll_praises where coll_no = #{id} and user_id = #{userId}
+	</delete>
+	
+	<select id="getCollBenfit" resultType="com.kaipai.ck.model.crowdfunding.CollBenfitModel" parameterType="hashmap">
+		select 
+		kcb.coll_ben_id as benfitId,
+		benfit_desc as benfitDesc,
+		benfit_size as total,
+		IFNULL(SUM(kucl.git_num),0) as remainderCount,
+		kcb.ev_amt as benfitPrice
+		FROM kp_coll_benfit kcb
+		LEFT JOIN kp_user_coll_list kucl on kcb.coll_ben_id=kucl.coll_ben_id
+		where  kcb.coll_no=#{collNo} and kcb.state=1
+		GROUP BY kcb.coll_ben_id
+	</select>
+	
+	<!-- 获取众筹收益购买总数 -->
+	<select id="getCollBenfitSize" resultType="Long" parameterType="hashmap">
+		select 
+			benfit_size
+		FROM 
+			kp_coll_benfit kcb
+		where  
+			kcb.coll_ben_id=#{id}
+	</select>
+	
+	<!-- 获取众筹收益已购买总数 -->
+	<select id="getOrderCollBenfit" resultType="Long" parameterType="hashmap">
+		select 
+			ifnull(sum(kuc.git_num),0)
+		FROM 
+			kp_user_coll_list kuc
+		where  
+			kuc.coll_ben_id=#{id} and kuc.state > 0
+	</select>
+	<!-- 热门众筹 -->
+	<select id="findHotColl" resultType="com.kaipai.ck.model.crowdfunding.CrowdfundingModel" parameterType="hashmap">
+		SELECT
+			kc.coll_no AS id,
+			kc.coll_name AS name,
+			kc.coll_desc AS collDesc,
+			kc.mv_desc_pc AS projectDetail,
+			kc.pay_next_url as payNextUrl,
+			kc.coll_img_url as coverUrl,
+			kc.coll_img_url_pc as coverUrlPc,
+			TO_DAYS(kc.coll_ed) - TO_DAYS(SYSDATE()) AS surplusTime,
+			COUNT(kuc.id) AS contribuTers,
+			IFNULL(SUM(round(kuc.ev_amt / 100, 2) * kuc.git_num),0) AS collMoney,
+			IFNULL(count(kcp.id),0) as likes,
+			IFNULL(TRUNCATE ((SUM(round(kuc.ev_amt / 100, 2) * kuc.git_num) / round(kc.ttl_amt / 100, 2)) * 100,2),0) AS completePc
+		FROM
+			kp_collections kc
+		LEFT JOIN (
+			SELECT
+				*
+			FROM
+				kp_user_coll_list kucl
+			WHERE
+				kucl.state = 'OK'
+		) kuc ON kuc.coll_no = kc.coll_no
+		LEFT JOIN kp_coll_praises kcp on kc.coll_no=kcp.coll_no
+		WHERE
+			1 = 1
+		AND kc.is_del = '0'
+		GROUP BY kc.coll_no
+		ORDER BY likes desc
+		LIMIT #{pageIndex},#{pageSize}
+	</select>
+	<!-- 众筹详情_PC-->
+	
+	
+	<!-- 众筹业务员查看自己的众筹项目参与情况 -->
+	<select id="findCollByUserId" parameterType="string" resultType="com.kaipai.ck.model.crowdfunding.CollEmployeeModel">
+	<![CDATA[
+		select 
+		(SELECT SUM(ko.odr_amt) FROM kp_orders ko WHERE ko.pay_state = '1' AND ko.order_type = 'COLL-MV' AND ko.order_no IN (SELECT keywd FROM bi_user_amt_his buah WHERE buah.`user_id` = #{userId} AND buah.`op_code` ='+')) as sum,
+		(SELECT SUM(ko.odr_amt) FROM kp_orders ko WHERE ko.pay_state = '1' AND ko.order_type = 'COLL-MV' and ko.order_tm < curdate() AND ko.order_no IN (SELECT keywd FROM bi_user_amt_his buah WHERE buah.`user_id` = #{userId} AND buah.`op_code` ='+')) as yesterdaySum,
+		(SELECT COUNT(ko.order_no) FROM kp_orders ko WHERE ko.pay_state = '1' AND ko.order_type = 'COLL-MV' AND ko.order_no IN (SELECT koc.order_no FROM kp_order_collection koc WHERE koc.`tranfer_usr_id` = #{userId})) as userCount,
+		(SELECT COUNT(ko.order_no) FROM kp_orders ko WHERE ko.pay_state = '1' AND ko.order_type = 'COLL-MV' AND ko.order_tm < curdate() and ko.order_no IN (SELECT koc.order_no FROM kp_order_collection koc WHERE koc.`tranfer_usr_id` = #{userId})) as yesterdayUserCount 
+		from dual
+	]]>
+	</select>
+	<!-- 众筹业务员查看具体项目的情况-->
+	<select id="findCollByuserIdAndCollNo" parameterType="map" resultType="com.kaipai.ck.model.crowdfunding.CollEmployeeModel">
+	<![CDATA[
+		SELECT 
+			(SELECT SUM(ko.odr_amt) FROM kp_orders ko WHERE ko.pay_state = '1' AND ko.order_type = 'COLL-MV' AND ko.order_no IN (SELECT keywd FROM bi_user_amt_his buah LEFT JOIN kp_order_collection koc ON koc.order_no = buah.keywd AND koc.coll_no = #{collNo} WHERE buah.`user_id` = #{userId} AND buah.`op_code` ='+')) AS SUM,
+			(SELECT SUM(ko.odr_amt) FROM kp_orders ko WHERE ko.pay_state = '1' AND ko.order_type = 'COLL-MV' AND ko.order_tm < CURDATE() AND ko.order_no IN (SELECT keywd FROM bi_user_amt_his buah LEFT JOIN kp_order_collection koc ON koc.order_no = buah.keywd AND koc.coll_no = #{collNo} WHERE buah.`user_id` = #{userId} AND buah.`op_code` ='+')) AS yesterdaySum,
+			(SELECT COUNT(ko.order_no) FROM kp_orders ko WHERE ko.pay_state = '1' AND ko.order_type = 'COLL-MV' AND ko.order_no IN (SELECT koc.order_no FROM kp_order_collection koc WHERE koc.`tranfer_usr_id` = #{userId} AND koc.coll_no=#{collNo})) AS userCount,
+			(SELECT COUNT(ko.order_no) FROM kp_orders ko WHERE ko.pay_state = '1' AND ko.order_type = 'COLL-MV' AND ko.order_tm < CURDATE() AND ko.order_no IN (SELECT koc.order_no FROM kp_order_collection koc WHERE koc.`tranfer_usr_id` = #{userId} AND koc.coll_no=#{collNo})) AS yesterdayUserCount 
+		FROM DUAL
+	]]>
+	</select>
+	
+	<select id="findCollListByUserId" parameterType="string" resultType="com.kaipai.ck.model.crowdfunding.CrowdfundingModel">
+	<![CDATA[
+		SELECT kc.coll_no AS id, kc.`coll_name` AS `name`,kc.`coll_img_url` coverUrl,kc.coll_state AS `status` FROM kp_collections kc 
+			WHERE kc.coll_no IN (SELECT DISTINCT(koc.coll_no) FROM kp_order_collection koc 
+				WHERE kc.is_del = '0' AND kc.coll_state in( 'SALE_END','BESPOKE','SALING') AND  koc.order_no IN (SELECT buah.keywd FROM bi_user_amt_his buah 
+					WHERE buah.op_code = '+' AND buah.user_id = #{userId}))
+	]]>
+	</select>
+	
+	
+	<!-- 业务员查看单个众筹项目下的所有参与众筹人员的列表 -->
+	<select id="findCollUserListByuserId" parameterType="map" resultType="com.kaipai.ck.model.crowdfunding.CollPayHisModel">
+	<![CDATA[
+		SELECT ko.odr_amt as amt,ko.order_tm as createTm,kc.`coll_name` as collName,ko.user_id as userId,ku.nick_name as nickName FROM kp_orders ko 
+		LEFT JOIN kp_order_collection koc ON koc.order_no = ko.order_no
+		LEFT JOIN kp_collections kc ON kc.coll_no = koc.coll_no and kc.coll_type='TG-XY' and kc.is_del = '0' AND kc.coll_state <> 'DRAFT'
+		LEFT JOIN kp_users ku ON ku.user_id = ko.user_id
+		WHERE ko.pay_state = '1' AND ko.order_type = 'COLL-MV' AND ko.is_del = '0' AND ko.order_no IN (SELECT buah.keywd FROM bi_user_amt_his buah WHERE user_id = #{userId})
+		ORDER BY ko.order_tm DESC
+		]]>
+		limit 
+		<if test="index != null">
+			#{index},
+		</if>
+		#{rows}
+	</select>
+	
+	<!-- 业务员查看具体项目的参与众筹人员的列表 -->
+	<select id="findCollUserListByCollNoAndUserId" parameterType="map" resultType="com.kaipai.ck.model.crowdfunding.CollPayHisModel">
+		SELECT ko.odr_amt as amt,ko.order_tm as createTm,kc.`coll_name` as collName,ko.user_id as userId,ku.nick_name as nickName FROM kp_orders ko 
+		LEFT JOIN kp_order_collection koc ON koc.order_no = ko.order_no and koc.coll_no = #{collNo}
+		LEFT JOIN kp_collections kc ON kc.coll_no = koc.coll_no and kc.coll_type='TG-XY'
+		LEFT JOIN kp_users ku ON ku.user_id = ko.user_id
+		WHERE ko.pay_state = '1' AND ko.order_type = 'COLL-MV' AND ko.is_del = '0' AND ko.order_no IN (SELECT buah.keywd FROM bi_user_amt_his buah WHERE user_id = #{userId})
+		ORDER BY ko.order_tm DESC
+		limit 
+		<if test="index != null and index != '' ">
+			#{index},
+		</if>
+		#{rows}
+	</select>
+	
+	<!-- 我的众筹 -->
+	<select id="findMyCollectionByUserId" parameterType="map" resultType="com.kaipai.ck.model.crowdfunding.CrowdfundingModel">
+		select kc.coll_no AS id,
+			kc.coll_name AS name,
+			kc.coll_state AS status,
+			kc.coll_img_url as coverUrl,
+			kc.coll_img_url_pc as coverUrlPc,
+			kc.share_pic_url as sharePicUrl,
+			kc.mv_desc_pc as projectDetail,
+			kc.mv_desc_pc as projectDetail_PC,
+			kc.coll_desc as benfitDesc,
+			kc.coll_desc as collDescApp,
+			kc.coll_desc as collDesc,
+			kc.pay_next_url as payNextUrl,
+			kc.coll_st as collStartTm,
+			kc.coll_ed as collStopTm,
+			kc.ttl_amt as ttlAmt,
+			kc.coll_type as collType,
+			IFNULL((
+				SELECT
+					SUM(m.money)
+				FROM
+					(
+						SELECT
+							kuc.coll_no AS coll_no,
+							kuc.ev_amt * kuc.git_num AS money
+						FROM kp_user_coll_list kuc 
+					) m
+				WHERE
+					m.coll_no = kc.coll_no
+			),0) AS raisedAmount,
+			IFNULL(
+			TRUNCATE (
+				(
+					(SELECT sum(kuc.git_num*kuc.ev_amt)FROM kp_user_coll_list  kuc WHERE kuc.coll_no = kc.coll_no) / 
+					kc.ttl_amt
+				) * 100,2
+			),'0') AS completePc,
+			TO_DAYS(kc.coll_ed)-TO_DAYS(SYSDATE()) as surplusTime,sum(kucl.ev_amt*kucl.git_num) as myAmount 
+		from kp_user_coll_list kucl 
+		left join kp_collections kc on kc.coll_no = kucl.coll_no and kc.coll_state = #{status} and kc.is_del = '0'
+		where kucl.user_id = #{userId} and kucl.state > 0 group by kucl.coll_no;
+	</select>
+	
+	<!-- 查询记录的总数，用于分页显示 -->
+	<select id="getTotalCount" resultType="long" parameterType="hashmap">
+		SELECT
+			count(0)
+		FROM
+			kp_collections kc
+		WHERE
+			kc.is_del = 0
+		 <if test="null != userId and userId !=''">
+  			and kc.coll_no in (select kco.coll_no from 
+			(select co.coll_no,ko.user_id from kp_order_collection co,kp_orders ko where co.order_no = ko.order_no and ko.user_id = #{userId}) kco )
+  		 </if>
+		 <if test="null!=status and status!=''">
+  			and kc.coll_state=#{status}
+  		 </if>
+  		 <if test="null==status or status==''">
+  			and kc.coll_state in ('SALING','SALE_END','BESPOKE')
+  		 </if>
+	</select>
+	<!-- //查找所有产品的ID -->
+	<select id="findBenIds" resultType="string">
+		select coll_ben_id from kp_coll_benfit where state = '1'
+	</select>
+	
+	<select id="getBefitDetail" resultType="com.kaipai.ck.model.crowdfunding.CollBenfitModel" parameterType="string">
+		select 
+			kcb.coll_ben_id as benfitId,
+			kcb.ev_amt as benfitPrice,
+			kcb.benfit_size as total,
+			kcb.float_amt as floatAmt,
+			kcb.benfit_desc as benfitDesc,
+			kcb.self_size as selfSize,
+			kc.pub_user_id as userId
+		from 
+			kp_coll_benfit kcb
+		left join
+			kp_collections kc on kc.coll_no = kcb.coll_no
+		where 
+			kcb.coll_ben_id = #{benfitId} and kcb.state = '1'
+	</select>
+	
+	
+	<select id="findList" resultType="com.kaipai.ck.model.crowdfunding.CrowdfundingModel" parameterType="hashmap">
+		SELECT
+			kc.coll_no AS collNo,
+			kc.coll_name AS collName,
+			kc.coll_st AS collSt,
+			kc.coll_ed AS collEd,
+			kc.bespeak_st AS bespeakSt,
+			kc.bespeak_ed AS bespeakEd,
+			
+			kc.coll_state AS collState,
+			kc.pay_next_url as payNextUrl,
+			count(distinct(kuc.user_id)) AS contribuTers,
+			SUM(round(kuc.ev_amt/100,2)*kuc.git_num) AS collMoney,
+			TRUNCATE (
+				(
+					(SELECT sum(kuc.git_num*kuc.ev_amt)FROM kp_user_coll_list  kuc WHERE kuc.coll_no = kc.coll_no) / 
+					kc.ttl_amt
+
+				) * 100,
+				2
+			) AS completePercent,
+			kc.order_no as orderNo
+		FROM
+			kp_collections kc
+		LEFT JOIN (select * from kp_user_coll_list kucl WHERE kucl.state='1') kuc ON kuc.coll_no = kc.coll_no
+		WHERE
+			1 = 1
+		AND kc.is_del = '0' 
+		 <if test="null!=model.nameOrId and ''!=model.nameOrId">
+		 	and kc.coll_name like '%${model.nameOrId}%' or kc.coll_no like '%${model.nameOrId}%'
+		 </if>
+		 <if test="null!=model.collState and ''!=model.collState">
+		 	and kc.coll_state=#{model.collState}
+		 </if>
+		 <if test="null!=model.collstFrom and ''!=model.collstFrom">
+		 	and kc.coll_st<![CDATA[>=]]>#{model.collstFrom}
+		 </if>
+		 <if test="null!=model.collstTo and ''!=model.collstTo">
+		 	and kc.coll_st<![CDATA[<=]]>#{model.collstTo}
+		 </if>
+		 <if test="null!=model.colledFrom and ''!=model.colledFrom">
+		 	and kc.coll_ed<![CDATA[>=]]>#{model.colledFrom}
+		 </if>
+		 <if test="null!=model.colledTo and ''!=model.colledTo">
+		 	and kc.coll_ed<![CDATA[<=]]>#{model.colledTo}
+		 </if>
+		 GROUP BY
+			kc.coll_no
+		 ORDER BY
+			kc.coll_ed DESC
+		limit #{pageIndex},#{pageSize}
+	</select>
+	
+	<!-- 统计记录数 -->
+	<select id="getTotalCountBs" resultType="long" parameterType="hashmap">
+	 select count(*) from  kp_collections kc
+		where 1=1 
+			and kc.is_del='0'
+		 <if test="null!=model.nameOrId and ''!=model.nameOrId">
+		 	and kc.coll_name like '%${model.nameOrId}%' or kc.coll_no like '%${model.nameOrId}%'
+		 </if>
+		 <if test="null!=model.collState and ''!=model.collState">
+		 	and kc.coll_state=#{model.collState}
+		 </if>
+		 <if test="null!=model.collstFrom and ''!=model.collstFrom">
+		 	and kc.coll_st<![CDATA[>=]]>#{model.collstFrom}
+		 </if>
+		 <if test="null!=model.collstTo and ''!=model.collstTo">
+		 	and kc.coll_st<![CDATA[<=]]>#{model.collstTo}
+		 </if>
+		 <if test="null!=model.colledFrom and ''!=model.colledFrom">
+		 	and kc.coll_ed<![CDATA[>=]]>#{model.colledFrom}
+		 </if>
+		 <if test="null!=model.colledTo and ''!=model.colledTo">
+		 	and kc.coll_ed<![CDATA[<=]]>#{model.colledTo}
+		 </if>
+	</select>
+	
+	<!-- 添加众筹 -->
+	<insert id="createBean" useGeneratedKeys="true" keyProperty="id" parameterType="com.kaipai.ck.model.crowdfunding.CrowdfundingModel">
+		insert into 
+		kp_collections(
+		  coll_no,
+  		  coll_name,
+  		  coll_short_title,
+		  coll_st,
+		  coll_ed,
+		  coll_desc,
+		  ttl_amt,
+		  coll_state,
+		  coll_type,
+		  pub_user_id,
+		  pub_user_name,
+		  mov_no,
+		  coll_img_url,
+		  coll_img_url_pc,
+		  mv_desc_pc,
+		  pay_next_url,
+		  bespeak_st,
+		  bespeak_ed,
+		  coll_rate_type,
+		  next_repay_tm,
+		  coll_source,
+		  coll_day,
+		  coll_tag,
+		  is_del,
+		  create_tm
+		)
+		values(
+		#{collNo},
+		#{collName},
+		#{collShortTitle},
+		#{collSt},
+		#{collEd},
+		#{collDesc},
+		#{ttlAmt},
+		#{collState},
+		#{collType},
+		#{pubUserId},
+		#{pubUserName},
+		#{movNo},
+		#{collImgUrl},
+		#{collImgUrlPc},
+		#{mvDescPc},
+		#{payNextUrl},
+		#{bespeakStString},
+		#{bespeakEdString},
+		#{collRateType},
+		#{nextRepayTm},
+		#{collSource},
+		#{collDay},
+		#{collTag},
+		0,
+		SYSDATE()
+		)
+	</insert>
+
+	<!-- 修改众筹 -->
+	<update id="editUpdateBean" parameterType="com.kaipai.ck.model.crowdfunding.CrowdfundingModel">
+		update kp_collections kc
+		set
+		<!-- 所属项目（关联项目编号：kp_movies.mov_no） -->
+		<if test="null!=collName">
+			kc.coll_name=#{collName},
+		</if>
+		<if test="null!=collShortTitle">
+			kc.coll_short_title=#{collShortTitle},
+		</if>
+		<!-- 项目概述（关联项目概述：kp_movies） -->
+		<if test="null!=collDesc">
+			kc.coll_desc=#{collDesc},
+		</if>
+		<if test="null!=collDescApp">
+			kc.coll_desc=#{collDescApp},
+		</if>
+		<if test="null!=movNo">
+			kc.mov_no=#{movNo},
+		</if>
+		<!-- 设置总投资额 -->
+		<if test="null!=ttlAmt">
+			kc.ttl_amt=#{ttlAmt},
+		</if>
+		<if test="null!=collImgUrl">
+			kc.coll_img_url=#{collImgUrl},
+		</if>
+		<if test="null!=collImgUrlPc">
+			kc.coll_img_url_pc=#{collImgUrlPc},
+		</if>
+		<!-- 项目概述-->
+		<if test="null!=mvDescPc">
+			kc.mv_desc_pc=#{mvDescPc},
+		</if>
+		<if test="null!=mvDescH5">
+			kc.mv_desc_pc=#{mvDescH5},
+		</if>
+		<if test="null!=collType and collType != '' ">
+			kc.coll_type=#{collType},
+		</if>
+		<if test="null!=payNextUrl and ''!= payNextUrl">
+			kc.pay_next_url=#{payNextUrl},
+		</if>
+		<!-- 众筹开始时间 -->
+		<if test="null!=collSt">
+			kc.coll_st=#{collSt},
+		</if>
+		<!-- 众筹结束时间 -->
+		<if test="null!=collEd">
+			kc.coll_ed=#{collEd},
+		</if>
+		
+		<if test="null != pubUserId and '' != pubUserId">
+			kc.pub_user_id=#{pubUserId},
+		</if>
+		<if test="null != pubUserName and '' != pubUserName">
+			kc.pub_user_name=#{pubUserName},
+		</if>
+		
+		<if test="null!=collRateType">
+			kc.coll_rate_type=#{collRateType},
+		</if>
+		
+		<if test="null!=bespeakStString and ''!=bespeakStString">
+			kc.bespeak_st=#{bespeakStString},
+		</if>
+		<if test="null!=bespeakEdString and ''!=bespeakEdString">
+			kc.bespeak_ed=#{bespeakEdString},
+		</if>
+		<if test="null!=orderNo and ''!=orderNo">
+				kc.order_no=#{orderNo},
+		</if>
+		<if test="null!=collSource and ''!=collSource">
+				kc.coll_source=#{collSource},
+		</if>
+		<if test="null!=nextRepayTm and ''!=nextRepayTm">
+			kc.next_repay_tm=#{nextRepayTm},
+		</if>
+			kc.coll_state=#{collState}
+		where  kc.coll_no=#{collNo}
+	</update>
+	
+	<!-- 修改众筹 -->
+	<update id="updateBean" parameterType="com.kaipai.ck.model.crowdfunding.CrowdfundingModel">
+		update kp_collections kpc
+		set
+		<if test="null!=collState">
+		kpc.coll_state=#{collState}
+		</if>
+		where 1=1
+			and kpc.coll_no=#{collNo}
+	</update>
+	
+	
+	
+	
+	<!-- 查看是否开始或结束 -->
+	<select id="findCrowdFundingSTandED" resultType="com.kaipai.ck.model.crowdfunding.CrowdfundingModel" parameterType="com.kaipai.ck.model.crowdfunding.CrowdfundingModel">
+		select
+			ka.coll_st<![CDATA[<=]]>DATE_FORMAT(SYSDATE(),'%Y-%m-%d') as isStart,
+			ka.coll_ed<![CDATA[<]]>DATE_FORMAT(SYSDATE(),'%Y-%m-%d') as isEnd
+		from
+		kp_collections ka
+		where 1=1
+		and ka.coll_no=#{collNo}
+	</select>
+	
+	
+	
+	
+	<!-- 查看众筹 -->
+	<select id="findBean" resultType="com.kaipai.ck.model.crowdfunding.CrowdfundingModel" parameterType="com.kaipai.ck.model.crowdfunding.CrowdfundingModel">
+		select 
+		<!-- 众筹编号 -->
+		kc.coll_no as collNo,
+		<!-- 众筹活动标题 -->
+		coll_name as collName,
+		kc.coll_short_title as collShortTitle,
+		<!-- 设置总投资额 -->
+		round(ttl_amt/1000000,2) as ttlAmt,
+		coll_desc as collDesc,
+		coll_desc as collDescApp,
+		coll_img_url as collImgUrl,
+		coll_img_url_pc as collImgUrlPc,
+		<!-- 项目概述-->
+		mv_desc_pc as mvDescPc,
+		mv_desc_pc as mvDescH5,
+		<!-- 众筹开始时间 -->
+		coll_st as collSt,
+		<!-- 众筹结束时间 -->
+		coll_ed as collEd,
+		kc.mov_no as movNo,
+		kc.`coll_source` AS collSource,
+		kc.coll_state as collState,
+		kc.coll_type as collType,
+		kc.coll_rate_type as collRateType,
+		kc.next_repay_tm as nextRepayTm,
+		
+		kc.bespeak_st as bespeakSt,
+		kc.bespeak_ed as bespeakEd,
+		
+		km.mov_desc_pc AS proDesc,
+		km.mov_desc_app as proDescApp,
+		kc.pay_next_url as payNextUrl,
+		km.mov_name as movName,
+		km.ip_source_code as ipSourceCode,
+		IFNULL(0,SUM(ucl.git_num*round(ucl.ev_amt/1000000,2))) as collMoney
+		from
+			(kp_collections kc, kp_user_coll_list ucl)
+		LEFT JOIN kp_movies km ON kc.mov_no = km.mov_no
+		where 1=1
+			and kc.coll_no=#{collNo} and kc.coll_no=ucl.coll_no and ucl.state='OK'
+	</select>		
+	
+	<!-- 删除用户 -->
+	<delete id="deleteBean" parameterType="long">
+	update kp_collections kc
+		set
+		<if test="null!=isDel">
+		kc.is_del=#{isDel}
+		</if>
+		<!-- 众筹开始时间 -->
+		<!-- 众筹结束时间 -->
+		where 1=1
+			and kc.coll_no=#{collNo}
+	</delete>
+	<!-- 众筹份额信息-->
+	<insert id="createCrowdFundingInfo" parameterType="java.util.List">  
+	    insert into kp_coll_benfit (
+	    coll_no,
+	    benfit_desc,
+	    benfit_desc_app,
+	    ev_amt,
+	    create_tm,
+	    state,
+	    benfit_size,
+	    gift_code,
+	    gift_vale,
+	    float_amt,
+	    self_size
+	    )
+	    values  
+	    <foreach collection="list" item="item" index="index"  
+	        separator=",">  
+	        (
+	        #{item.collNo},
+	        #{item.benfitDesc},
+	        #{item.benfitDescApp},
+	        #{item.evAmt},
+	        sysdate(),
+	        #{item.state},
+	        #{item.total},
+	        #{item.giftCode},
+	        #{item.giftVale},
+	        #{item.evAmt},
+	        #{item.selfSize}
+	        )  
+	    </foreach>  
+	  </insert>
+	  <update id="updateCrowdFundingInfo"  parameterType="com.kaipai.ck.model.crowdfunding.CrowdfundingModel">
+       update kp_coll_benfit kar 
+                <set>
+                kar.state='0'
+                </set>
+              	where kar.coll_no = #{collNo}
+              	<if test=""></if>
+              	and kar.coll_ben_id not in 
+              	<foreach item="item" index="index" collection="collBenId" open="(" separator="," close=")">  
+				 #{item}  
+				</foreach> 
+	</update>
+    
+    
+    <update id="updateCrowdFundingInfoByCollNo"  parameterType="com.kaipai.ck.model.crowdfunding.CrowdfundingModel">
+       update kp_coll_benfit kar 
+                <set>
+                kar.state='0'
+                </set>
+              	where kar.coll_no=#{collNo}
+    </update>
+    
+     <update id="updateCollBenfit"  parameterType="com.kaipai.ck.model.crowdfunding.CrowdfundingModel">
+      update kp_coll_benfit  
+               <set>
+               	<if test="benfitDesc != null and benfitDesc !=''">
+               		benfit_desc = #{benfitDesc},
+               	</if>
+               	<if test="evAmt != null and evAmt !=''">
+               		ev_amt = #{evAmt},
+               	</if>
+               	<if test="total != null and total !=''">
+               		benfit_size = #{total},
+               	</if>
+               	<if test="giftCode != null and giftCode !=''">
+               		gift_code = #{giftCode},
+               	</if>
+               	<if test="giftVale != null and giftVale !=''">
+               		gift_vale = #{giftVale},
+               	</if>
+               </set>
+             	where coll_ben_id=#{collBenId}
+    </update>
+    
+  <!-- 查询众筹收益份额信息 -->
+  <select id="findCrowdFundingInfo" resultType="com.kaipai.ck.model.crowdfunding.CrowdfundingModel" parameterType="com.kaipai.ck.model.crowdfunding.CrowdfundingModel">
+  	select
+  	coll_no as collNo,
+  	coll_ben_id as collBenId,
+  	benfit_desc as benfitDesc,
+  	round(ev_amt/100,2) as evAmt,
+  	benfit_size as total,
+  	gift_code as giftCode,
+  	gift_vale as giftVale
+  	from
+  	kp_coll_benfit kcv
+  	where 1=1
+  	and kcv.state='1'
+  	and kcv.coll_no=#{collNo}
+  </select>
+  
+  
+	<!-- 查看出资列表 -->
+	<select id="findContribute" resultType="com.kaipai.ck.model.crowdfunding.CrowdfundingModel" parameterType="hashmap">
+		select
+			kucl.id as id,
+			kucl.git_tm as gitTm,
+			ku.mobile as mobile,
+			ku.nick_name as userName,
+			ku.kp_no as kpNo,
+			truncate((kucl.ev_amt*kucl.git_num)/100,2) as amount
+		from kp_user_coll_list kucl
+		left join kp_users ku on ku.user_id = kucl.user_id
+		where 1=1
+		 and kucl.coll_no =#{model.collNo}
+		limit #{pageIndex},#{pageSize}
+	</select>
+	
+	<select id="findContributeCount" resultType="long" parameterType="string">
+		select
+			count(0)
+		from 
+			kp_user_coll_list kucl
+		where 
+			kucl.coll_no =#{collNo}
+	</select>
+	<!-- 添加电影活动关联 -->
+	<insert id="createActMov" useGeneratedKeys="true" keyProperty="id" parameterType="com.kaipai.ck.model.crowdfunding.CrowdfundingModel">
+		insert into 
+		kp_mov_activity(
+		act_no,
+		mov_no
+		)
+		values(
+		#{collNo},
+		#{movNo}
+		)
+	</insert>
+	
+	<!-- 查询众筹信息 -->
+  <select id="findCrowdFundingsByParams" resultType="com.kaipai.ck.model.crowdfunding.CrowdfundingModel" parameterType="com.kaipai.ck.model.crowdfunding.CrowdfundingModel">
+  	select 
+  	kc.coll_no AS collNo,
+	kc.coll_name AS collName,
+	kc.coll_st AS collSt,
+	kc.coll_ed AS collEd,
+	kc.coll_state AS collState from
+  	kp_collections kc
+  	where 1=1
+  	<if test="null!=collState">
+  	and kc.coll_state=#{collState}
+  	</if>
+  	<if test="null!=collSt">
+  	and kc.coll_st=#{collSt}
+  	</if>
+  </select>
+  
+  <!-- 修改众筹的电影信息 -->
+	<update id="updateCrowdFundingVideo" parameterType="com.kaipai.ck.model.crowdfunding.CrowdfundingModel">
+		update kp_collections kc
+		set
+		<if test="null!=directorInfo">
+		kc.director_info=#{directorInfo},
+		</if>
+		<if test="null!=actorInfo">
+		kc.actor_info=#{actorInfo},
+		</if> 
+		<if test="null!=videoId">
+		kc.video_id=#{videoId}
+		</if>
+		<!-- 众筹开始时间 -->
+		<!-- 众筹结束时间 -->
+		where 1=1
+			and kc.coll_no=#{collNo}
+	</update>
+	
+	<!-- 上映众筹的电影信息 -->
+	<update id="showCrowdFunding" parameterType="com.kaipai.ck.model.crowdfunding.CrowdfundingModel">
+		update kp_collections kc
+		set
+		<if test="null!=directorInfo">
+		kc.director_info=#{directorInfo},
+		</if>
+		<if test="null!=actorInfo">
+		kc.actor_info=#{actorInfo},
+		</if> 
+		<if test="null!=videoId">
+		kc.video_id=#{videoId},
+		</if>
+		<if test="null!=collState">
+	  	kc.coll_state=#{collState}
+	  	</if>
+		where 1=1
+			and kc.coll_no=#{collNo}
+	</update>
+	
+	<!-- 查找时间已经开始的活动 -->
+	<select id="findColl2UpdateState" resultType="com.kaipai.ck.model.crowdfunding.CrowdfundingModel" parameterType="com.kaipai.ck.model.crowdfunding.CrowdfundingModel">
+		SELECT
+			coll_no AS collNo,
+			coll_name as collName
+		FROM
+			kp_collections ka
+		WHERE
+			ka.is_del = 0
+		AND ka.coll_state in (${collState})
+		AND ka.coll_st <![CDATA[<=]]> DATE_FORMAT(SYSDATE(), '%Y-%m-%d')
+		AND ka.coll_ed <![CDATA[>=]]> DATE_FORMAT(SYSDATE(), '%Y-%m-%d')
+	</select>
+	<!-- 查找时间已经结束的活动 -->
+	<select id="findColl2UpdateState2" resultType="com.kaipai.ck.model.crowdfunding.CrowdfundingModel" parameterType="com.kaipai.ck.model.crowdfunding.CrowdfundingModel">
+		SELECT
+			coll_no AS collNo,
+			coll_name as collName
+		FROM
+			kp_collections ka
+		WHERE
+			ka.is_del = 0
+		AND ka.coll_state in (${collState})
+		AND ka.coll_ed <![CDATA[<=]]> DATE_FORMAT(SYSDATE(), '%Y-%m-%d')
+	</select>
+	
+	<!-- 查找预热时间已经结束的活动 -->
+	<select id="findColl3UpdateState" resultType="com.kaipai.ck.model.crowdfunding.CrowdfundingModel" parameterType="com.kaipai.ck.model.crowdfunding.CrowdfundingModel">
+		SELECT
+			coll_no AS collNo,
+			coll_name as collName
+		FROM
+			kp_collections ka
+		WHERE
+			ka.is_del = 0
+		AND ka.coll_state in (${collState})
+		AND ka.bespeak_ed <![CDATA[<=]]> DATE_FORMAT(SYSDATE(), '%Y-%m-%d %H:%i:%s')
+		AND ka.coll_st <![CDATA[>]]> DATE_FORMAT(SYSDATE(), '%Y-%m-%d')
+	</select>
+	<!-- 更新状态 -->
+	<update id="updateCollState" >
+                update kp_collections 
+                <set>
+                coll_state = #{collState}
+                </set>
+              	where coll_no in ( ${collNos} )
+    </update>
+	
+	<!-- 查看用户购买份数 -->
+	<select id="getUserCollListByBenId" parameterType="long" resultType="com.kaipai.ck.model.crowdfunding.CrowdfundingModel">
+		select id,coll_no as collNo,coll_ben_id as collBenId,
+		user_id as userId,git_num as gitNum,ev_amt as evAmt,
+		git_tm as gitTm,state from kp_user_coll_list where coll_ben_id = #{collBenId}
+	</select>
+	
+	<!-- 查看溢价项目的总金额和总购买金额 -->
+	<select id="getRiseCollTotalAmt" parameterType="java.lang.String" resultType="com.kaipai.ck.model.crowdfunding.CrowdfundingModel">
+		SELECT ifnull(SUM(a.`ev_amt` * a.`git_num`),0)  as evAmt,b.`ttl_amt` as ttlAmt  FROM kp_collections b 
+		LEFT JOIN kp_user_coll_list a  ON a.`coll_no` = b.`coll_no`
+		WHERE b.`coll_no` = #{collNo}
+		AND a.`state` > 0 
+		AND b.coll_rate_type = '1' AND b.`is_del` = '0'
+	</select>
+	
+	<select id="findBenfitIdList" parameterType="string" resultType="string">
+		select 
+			coll_ben_id
+		from
+			kp_coll_benfit
+		where
+			coll_no = #{collNo} and state > 0
+	</select>
+	
+	<select id="findXzyPurchaseDetail" parameterType="string" resultType="com.kaipai.ck.model.crowdfunding.XzyPurchaseDetail">
+		select 
+			coll_no as collNo,
+			coll_name as title,
+			date_format(coll_st,'%Y-%m-%d %H:%i') as startTm,
+			date_format(coll_ed,'%Y-%m-%d %H:%i') as endTm,
+			coll_st as startTime,
+			coll_ed as endTime,
+			coll_desc as payBackH5,
+			coll_state as status,
+			pub_user_id as userId
+		from 
+			kp_collections
+		where
+			coll_no = #{collNo} and is_del = '0'
+	</select>
+	
+	<select id="findDrawModel" parameterType="string" resultType="com.kaipai.ck.model.contributiveList.CollDrawModel">
+		select
+			id,
+			user_id as userId,
+			git_num as gitNum,
+			draw_num as drawNum,
+			ev_amt as price,
+			`state` as state
+		from
+			kp_user_coll_list
+		where
+			coll_ben_id = #{benfitId} and state > 0
+	</select>
+	
+	<update id="updateDrawResult" parameterType="com.kaipai.ck.model.contributiveList.CollDrawModel">
+		update
+			kp_user_coll_list
+		set
+			draw_num = #{drawNum}
+		where
+			id = #{id}
+	</update>
+	
+	<update id="updateBenfitFloat">
+		update
+			kp_coll_benfit
+		set
+			float_amt = #{floatAmt}
+		where
+			coll_ben_id = #{benfitId}
+			
+	</update>
+	
+	<select id="findCollNoByStatus" resultType="string">
+		select 
+			coll_no
+		from 
+			kp_collections
+		where
+			coll_state = #{status} and is_del = '0'
+	</select>
+	
+	<select id="findContributeSumByUserId" resultType="int">
+		select
+			ifnull(sum(git_num),0)
+		from
+			kp_user_coll_list
+		where
+			coll_ben_id = #{benfitId} and user_id = #{userId} and `state` = '1'
+	</select>
+	
+	<select id="findDrawRes" resultType="com.kaipai.ck.model.trade.UserStockModel">
+		select
+			user_id as userId,
+			draw_num*100 as tradeNum,
+			ev_amt*draw_num as costAmtTtl
+		from
+			kp_user_coll_list
+		where
+			coll_no = #{collNo} and state = '1'
+	</select>
+	
+	<select id="findCollListToEnd" resultType="com.kaipai.ck.model.crowdfunding.SimpleCollModel">
+		select 
+			coll_no as collNo,
+			coll_name as title,
+			coll_st as startTm,
+			coll_ed as endTm,
+			pub_user_id as userId,
+			coll_type as collType
+		from 
+			kp_collections
+		where
+			coll_state = 'SALING' and coll_ed <![CDATA[<=]]> now() and is_del = '0'
+	</select>
+	
+	<select id="findSalingXqByUserId" resultType="int">
+		select 
+			count(1)
+		from
+			kp_collections
+		where
+			pub_user_id = #{userId} and coll_state = 'SALING' and is_del = '0'
+	</select>
+	
+	<select id="findCollStateByBenId" resultType="string">
+		select
+			b.coll_state
+		from
+			kp_coll_benfit a
+			left join kp_collections b
+			on a.coll_no = b.coll_no
+		where
+			a.coll_ben_id = #{benId}
+	</select>
+</mapper>

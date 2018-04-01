@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kaipai.ck.mapper.base.HomeMapper">
+
+	<!-- 根据平台类型 页面位置获取配置 -->
+	<select id="findConfigDtl" resultType="com.kaipai.ck.model.base.HomeConfigDtl" parameterType="hashmap">
+		select 
+		hct.id as id,
+		hct.home_id as homeId,
+		hct.view_type as viewType,
+		hct.val as val,
+		hct.icon_url as iconUrl,
+		hct.open_type as openType,
+		hct.open_url as openUrl
+		from kp_home_config hc
+		LEFT JOIN kp_home_config_dtl hct ON hc.home_id=hct.home_id
+		WHERE 
+		hc.plat_type=#{platType} 
+		and hc.web_opsition=#{webOpsition} 
+		and hc.state=1 
+		and hct.state=1
+		and hct.is_del='0'
+		<if test="viewType != 'ALL'.toString()">
+			and hct.view_type=#{viewType}
+		</if>
+	</select>
+</mapper>

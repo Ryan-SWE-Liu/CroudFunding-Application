@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kaipai.ck.mapper.bill.UserPrivBillMapper">
+
+   	<select id="getUserPrivVer" resultType="Long" parameterType="long">
+	      SELECT VER FROM BI_USER_PRIV_INFO T where T.USER_ID = #{userId}
+	</select>
+	
+	
+	<select id="lockUserForUpdateByUserId" resultType="Long" parameterType="long">
+	      SELECT VER FROM BI_USER_PRIV_INFO T where T.USER_ID = #{userId} and for update
+	</select>
+	
+	
+	<!-- 充值 -->
+	<update id="updateRecharge" parameterType="map">
+	    update bi_user_priv_info set ver=ver+1, lst_amt = amt, amt = amt+#{opAmt,jdbcType=DOUBLE} 
+	    where user_id = #{userId,jdbcType=BIGINT} 
+	</update>
+	
+	<!-- 提现申请-->
+	<update id="updatePostWithdrawal" parameterType="map">
+	    update bi_user_priv_info set   ver=ver+1, lst_amt = amt ,amt=amt - #{opAmt,jdbcType=DOUBLE},
+	    with_lk_amt=with_lk_amt + #{opAmt,jdbcType=DOUBLE}
+	    where user_id = #{userId,jdbcType=BIGINT} 
+	</update>
+	
+	<!-- 提现通过 -->
+	<update id="updatePassWithdrawal" parameterType="map">
+	    update bi_user_priv_info set  ver=ver+1,  with_lk_amt=with_lk_amt- #{opAmt,jdbcType=DOUBLE}
+	    where user_id = #{userId,jdbcType=BIGINT} 
+	</update>
+	
+	<!-- 提现 公共账号更新 -->
+	<update id="updateKPWithdrawal" parameterType="map">
+	     update bi_user_priv_info set   ver=ver+1, lst_amt = amt ,amt=amt - #{opAmt,jdbcType=DOUBLE}
+	    where user_id = #{userId,jdbcType=BIGINT}
+	</update>
+	
+	<!-- 提现审核失败 -->
+	 <update id="updateRefuseWithdrawal" parameterType="map">
+	     update bi_user_priv_info set ver=ver+1,lst_amt = amt, amt = amt+#{opAmt,jdbcType=DOUBLE},
+	      with_lk_amt=with_lk_amt- #{opAmt,jdbcType=DOUBLE}
+	    where user_id = #{userId,jdbcType=BIGINT} 
+	</update>
+	
+	 <update id="updateWasteAmt" parameterType="map">
+	     update bi_user_priv_info set ver=ver+1,lst_amt = amt, amt = amt-#{opAmt,jdbcType=DOUBLE}
+	    where user_id = #{userId,jdbcType=BIGINT} 
+	</update>
+	
+	<!-- 查询用户总金额 -->
+	<select id="findAmountTotal" resultType="java.lang.Double">
+		select sum(amt) from bi_user_priv_info where user_id <![CDATA[<>]]> 2
+	</select>
+	<!-- 查询交易锁定金额 -->
+	<select id="findLockAmountTotal" resultType="java.lang.Double">
+		select sum(lock_amt) from bi_user_priv_info 
+	</select>
+	
+	<select id="findAmountTotalExcludeFade" resultType="double">
+		select 
+			ifnull(sum(amt),0)
+		from 
+			bi_user_priv_info 
+		where 
+			user_id not in
+			<foreach collection="list" item="item" index="index" open="(" separator="," close=")">
+				#{item}
+			</foreach>
+	</select>
+	
+</mapper>

@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kaipai.ck.mapper.advert.AdvertConfigMapper">
+
+	<sql id="baseColumn" >
+		id,type,value,show_tm as showTm,img_url as imgUrl,is_del as isDel,create_tm as createTm
+	</sql>
+	
+	<select id="getAdvertConfigList" parameterType="map" resultType="com.kaipai.ck.model.advert.AdvertConfigModel">
+		select <include refid="baseColumn" /> from kp_ad_config where is_del = '0'
+		<if test="type != null and type !=''">
+			and type = #{type}
+		</if>
+		  <if test="startCreateTm != null and startCreateTm != ''">
+        	AND create_tm  >= #{startCreateTm}
+        </if>
+         <if test="endCreateTm != null and endCreateTm !=''">
+             AND create_tm  <![CDATA[<=]]> #{endCreateTm}
+         </if>
+		 ORDER BY create_tm desc
+        limit #{pageIndex},#{pageSize}
+	</select>
+	
+	<select id="getAdvertConfigCount" parameterType="map" resultType="int">
+		select count(1) from kp_ad_config where is_del = '0'
+		<if test="type != null and type !=''">
+			and type = #{type}
+		</if>
+		  <if test="startCreateTm != null and startCreateTm != ''">
+        	AND create_tm  >= #{startCreateTm}
+        </if>
+         <if test="endCreateTm != null and endCreateTm !=''">
+             AND create_tm  <![CDATA[<=]]> #{endCreateTm}
+         </if>
+	</select>
+	
+	<select id="getAdvertConfig" parameterType="long" resultType="com.kaipai.ck.model.advert.AdvertConfigModel">
+		select <include refid="baseColumn" /> from kp_ad_config where id = #{id}
+	</select>
+
+	<update id="updateAdvertConfig" parameterType="com.kaipai.ck.model.advert.AdvertConfigModel">
+		update kp_ad_config 
+		<set>
+			<if test="type !=null and type !=''">
+				type = #{type},
+			</if>
+			<if test="showTm !=null and showTm !=''">
+				show_tm = #{showTm},
+			</if>
+			<if test="imgUrl !=null and imgUrl !=''">
+				img_url = #{imgUrl},
+			</if>
+			<if test="value !=null and value !=''">
+				value = #{value},
+			</if>
+		</set>
+		where id = #{id}
+	</update>
+	
+	<insert id="insertAdvertConfig" parameterType="com.kaipai.ck.model.advert.AdvertConfigModel">
+		insert into kp_ad_config(type,value,show_tm,img_url,create_tm)
+		values(#{type},#{value},#{showTm},#{imgUrl},#{createTm})
+	</insert>
+	
+	<delete id="deleteAdvertConfig" parameterType="long">
+		update kp_ad_config set is_del = '1' where id = #{id}
+	</delete>
+	
+</mapper>

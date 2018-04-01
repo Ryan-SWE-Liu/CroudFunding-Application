@@ -1,0 +1,379 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kaipai.ck.mapper.bill.PayHisMapper">
+	
+	
+	<!-- 查询所有用户付款明细 -->
+	<select id="findVideoBalance" resultType="com.kaipai.ck.model.video.VideoBalanceModel" parameterType="hashmap">
+			
+			select 
+				(select sum(bh.amt)
+				from bi_user_amt_his bh
+				where bh.op_code='+' and bh.keywd in 
+				<foreach collection="list" index="index" item="orderNo" open="(" separator="," close=")">
+				   	#{orderNo}
+				 </foreach>) sumMoney,
+				(select count(0) from (select bh.keywd
+				from bi_user_amt_his bh
+				where bh.op_code='+' and bh.keywd in 
+				<foreach collection="list" index="index" item="orderNo" open="(" separator="," close=")">
+				   	#{orderNo}
+				 </foreach> group by bh.keywd) s) payCounts,
+				 
+				 <if test="transferList != null and transferList != '' ">
+					(select sum(bh.amt)
+					from bi_user_amt_his bh
+					where bh.op_code='+' and <![CDATA[	bh.user_id<>2 ]]> 
+					
+					and bh.keywd in 
+					<foreach collection="transferList" index="index" item="orderNo" open="(" separator="," close=")">
+					   	#{orderNo}
+					 </foreach>) transferMoney
+				 </if>
+			from dual
+   			
+	</select>
+	
+	<select id="getTotalByType" resultType="Double">
+		select 
+			ifnull(sum(amt),0.0)
+		from
+			bi_user_amt_his
+		where
+			user_id = #{userId} and busi_code = #{busiCode} and audit_state = 'OK'
+	</select>
+	
+	
+	
+	<!-- 查询所有用户付款明细 -->
+	<select id="findPayHisPage" resultType="com.kaipai.ck.model.bill.PayHis" parameterType="hashmap">
+			select  cu.amt_no payNo,
+					cu.user_id as userId,
+					cu.amt as amtDouble,
+					cu.op_code opCode,
+					cu.create_tm payTm,
+					DATE_FORMAT(cu.create_tm,'%Y-%c-%d %H:%i:%s')  payTmString,
+					cu.amt_info amtInfo,
+					cu.busi_code as payType,
+					cu.keywd as orderNo,
+					cu.audit_state auditState
+					from bi_user_amt_his cu
+					where 1=1
+					<if test="userId != null and userId != '' ">
+						and cu.user_id = #{userId}
+					</if> 
+					<if test="orderNo != null and orderNo != '' ">
+						and cu.keywd = #{orderNo}
+					</if> 
+					<if test="busiCode != null and busiCode != '' ">
+						and  cu.busi_code = #{busiCode}
+					</if> 
+					<if test="start != null and end != null">
+						and cu.create_tm between #{start} and #{end}
+					</if>
+					<if test="lastTm != null">
+						<![CDATA[ and cu.create_tm < #{lastTm}]]>
+					</if>
+			order by cu.create_tm desc
+		limit 
+		<if test="pageIndex != null and pageIndex!= ''">
+			#{pageIndex},
+		</if>
+		#{pageSize}
+	</select>
+	
+	
+	<!-- 查询具体一条记录 -->
+	<select id="findPayHisByAmtNo" resultType="com.kaipai.ck.model.bill.PayHis" parameterType="string">
+   
+			select  cu.amt_no payNo,
+					cu.user_id as userId,
+					cu.amt as amtDouble,
+					cu.op_code opCode,
+					cu.create_tm payTm,
+					DATE_FORMAT(cu.create_tm,'%Y-%c-%d %H:%i:%s')  payTmString,
+					cu.amt_info amtInfo,
+					cu.busi_code as payType,
+					cu.keywd as orderNo,
+					cu.audit_state auditState
+			from bi_user_amt_his cu
+					where cu.amt_no = #{amtNo}
+	</select>
+	
+	
+	
+	
+
+	<!-- 查询记录的总数，用于分页显示 -->
+	<select id="findPayHisCount" resultType="long" parameterType="hashmap">
+		
+	   			select count(0) from bi_user_amt_his cu 
+					where 1=1
+					<if test="userId != null and userId != '' ">
+						and cu.user_id = #{userId}
+					</if> 
+					<if test="orderNo != null and orderNo != '' ">
+						and cu.keywd like '%${orderNo}%'
+					</if> 
+					<if test="busiCode != null and busiCode != '' ">
+						<if test="busiCode=='RECHR_BI'">
+							and ( cu.busi_code = 'RECHR_BI' or cu.busi_code = 'RECHARGE')
+						</if>
+						<if test="busiCode !='RECHR_BI'">
+							and cu.busi_code = #{busiCode}
+						</if>
+					</if> 
+					<if test="start != null and end != null">
+						and cu.create_tm between #{start} and #{end}
+					</if>
+	</select>
+
+	<!-- 查询用户总收益 -->
+	<select id="findUserIncomeMoney" resultType="String" parameterType="hashmap">
+		select (cu.amt-cu.lock_amt) amt from bi_user_priv_info cu where cu.user_id = #{benfitUsrId}
+	</select>
+	
+	<!-- 查询用户总收益 -->
+	<select id="findUserIncomeMoney2" resultType="String" parameterType="hashmap">
+	select 
+		(select if(sum(cu.amt)>0 , sum(cu.amt) ,0 )
+		 from bi_user_amt_his cu where cu.op_code = '+' and cu.user_id = #{benfitUsrId} )
+		- 
+		(select if(sum(cu.amt)>0 , sum(cu.amt) ,0 )
+		  from bi_user_amt_his cu where cu.op_code = '-' and cu.user_id = #{benfitUsrId} )
+		as amts
+ from dual
+	</select>
+	
+	
+	<!-- 查询用户增加的金额-->
+	<select id="findUserIncomeADDMoney" resultType="long" parameterType="hashmap">
+	select if(sum(cu.amt)>0 , sum(cu.amt) ,0 )
+		 from bi_user_amt_his cu where cu.op_code = '+' and cu.user_id = #{benfitUsrId}
+	</select>
+	<!-- 查询用户支出金额 -->
+	<select id="findUserIncomeDECMoney" resultType="long" parameterType="hashmap">
+	select if(sum(cu.amt)>0 , sum(cu.amt) ,0 )
+		 from bi_user_amt_his cu where cu.op_code = '-' and cu.user_id = #{benfitUsrId}
+	</select>
+
+
+	<!-- 添加用户付款明细 -->
+	<insert id="createPayHis" parameterType="com.kaipai.ck.model.bill.PayHis">
+		insert into bi_pay_his
+			(pay_no,
+			order_no,
+			pay_tm,
+			state,
+			pay_type,
+			prepay_id,
+			mch_id,
+			platform_type,
+			pay_user_id,
+			call_back_state,
+			bill_state,
+			pay_amt,
+			bill_amt,
+			benfit_usr_id)
+		values(
+			#{payNo,jdbcType=VARCHAR},
+			#{orderNo,jdbcType=VARCHAR},
+			SYSDATE(),
+			#{state,jdbcType=VARCHAR},
+			#{payType,jdbcType=VARCHAR},
+			#{prepayId,jdbcType=VARCHAR},
+			#{mchId,jdbcType=VARCHAR},
+			#{platformType,jdbcType=VARCHAR},
+			#{payUserId,jdbcType=BIGINT},
+			#{callBackState,jdbcType=VARCHAR},
+			#{billState,jdbcType=VARCHAR},
+			#{payAmt,jdbcType=BIGINT},
+			#{billAmt,jdbcType=BIGINT},
+			#{benfitUsrId,jdbcType=BIGINT}
+		)
+	</insert>
+
+	<!-- 修改用户付款明细 -->
+	<update id="updatePayHis" parameterType="com.kaipai.ck.model.bill.PayHis">
+		update bi_pay_his set 
+		call_back_state = #{callBackState,jdbcType=VARCHAR},
+		bill_state = #{billState,jdbcType=VARCHAR},
+		state = #{state,jdbcType=VARCHAR},
+		prepay_id = #{prepayId,jdbcType=VARCHAR},
+		mch_id = #{mchId,jdbcType=VARCHAR},
+		platform_type = #{platformType,jdbcType=VARCHAR}
+		where pay_no = #{payNo,jdbcType=BIGINT}
+	</update>
+	
+	
+	<!-- 回调修改状态  -->
+	<update id="updatePayHisBycallBack" parameterType="hashmap">
+		update bi_pay_his set 
+		call_back_state = #{callBackState,jdbcType=VARCHAR},
+		state = #{state,jdbcType=VARCHAR}
+		where order_no = #{outTradeNo,jdbcType=VARCHAR}
+	</update>
+	
+
+	<!-- 删除用户付款明细 -->
+	<update id="deletePayHis" parameterType="com.kaipai.ck.model.bill.PayHis">
+		delete from bi_pay_his
+		where pay_no = #{payNo,jdbcType=BIGINT}
+	</update>
+	
+	
+	
+	<!-- 查询订单详情 -->
+	<select id="findPayhisByOrderNo" resultType="com.kaipai.ck.model.bill.PayHis" parameterType="String">
+	
+			select cu.amt_no payNo
+					,cu.amt as amtDouble
+					,cu.op_code opCode
+					,cu.create_tm payTm
+					,DATE_FORMAT(cu.create_tm,'%Y-%c-%d %H:%i:%s')  payTmString
+					,cu.amt_info amtInfo
+					,cu.audit_state auditState
+					 from bi_user_amt_his cu 
+		     where cu.amt_no = #{orderNo}
+			
+	</select>
+	
+	<select id="findBiPayHisByOrderNo" resultType="com.kaipai.ck.model.bill.PayHis" parameterType="String">
+		select 
+			t.pay_no as payNo,
+			t.order_no as orderNo,
+			t.platform_type as platformType
+		from 
+			bi_pay_his t 
+		where 
+			t.order_no = #{orderNo}
+	</select>
+	
+		<!-- ==============用户付款明细回调============= -->
+		
+				
+	<!-- 查询所有用户付款明细回调 -->
+	<select id="findPayCallbackHisPage" resultType="com.kaipai.ck.model.bill.PayCallbackHis" parameterType="hashmap">
+	select  t.id ,t.platform ,t.ret_body_content retBodyContent
+	, t.result_code resultCode , t.err_code errCode
+	, t.err_code_des errCodeDes , t.out_trade_no outTradeNo
+	, t.transaction_id transactionId,
+	DATE_FORMAT(t.createAt,'%Y-%c-%d %H:%i:%s')  createAt
+	from bi_pay_callback_his t
+		where 1=1 
+		<if test="transactionId != null and transactionId != '' ">
+			and t.transaction_id like '%${transactionId}%' 
+		</if>
+		 order by t.id desc
+		limit #{pageIndex},#{pageSize}
+	</select>
+
+	<!-- 查询记录的总数，用于分页显示 -->
+	<select id="findPayCallbackHisCount" resultType="long" parameterType="hashmap">
+		select count(0)
+		from bi_pay_callback_his t
+		where 1=1 
+		<if test="transactionId != null and transactionId != '' ">
+			and t.transaction_id like '%${transactionId}%' 
+		</if>
+	</select>
+	
+	<!-- 查询记录的总数，用于分页显示 -->
+	<select id="isHaveCallByNo" resultType="long" parameterType="string">
+		select count(0)
+		from bi_pay_callback_his t
+		where 1=1 
+		and t.out_trade_no =  #{orderNo} 
+		
+	</select>
+	
+
+	<!-- 添加用户付款明细回调 -->
+	<insert id="createPayCallbackHis" parameterType="com.kaipai.ck.model.bill.PayCallbackHis">
+		insert into bi_pay_callback_his
+			(platform,ret_body_content,result_code,err_code,err_code_des
+			,out_trade_no,transaction_id,createAt)
+		values(
+			#{platform,jdbcType=VARCHAR},
+			#{retBodyContent,jdbcType=VARCHAR},
+			#{resultCode,jdbcType=VARCHAR},
+			#{errCode,jdbcType=VARCHAR},
+			#{errCodeDes,jdbcType=VARCHAR},
+			#{outTradeNo,jdbcType=VARCHAR},
+			#{transactionId,jdbcType=VARCHAR},
+			#{createAt,jdbcType=TIMESTAMP}
+		)
+	</insert>
+	
+	<!-- 回掉执行成功后的状态更改 -->
+	<update id="successedCallBackState" parameterType="string">
+		update bi_pay_callback_his set state='OK' where out_trade_no =#{orderNo,jdbcType=VARCHAR}
+	</update>
+	
+
+
+	<!-- 删除用户付款明细回调 -->
+	<update id="deletePayCallbackHis" parameterType="com.kaipai.ck.model.bill.PayCallbackHis">
+		delete from bi_pay_callback_his
+		where id = #{id,jdbcType=BIGINT}
+	</update>
+	
+	
+	
+	<insert id="addUserAmtHis" parameterType="com.kaipai.ck.model.bill.UserAmtHis">
+		insert into
+		bi_user_amt_his(user_id,amt_no,amt,op_code,create_tm,amt_info,keywd,audit_state,audit_user,busi_code)
+		values(
+		#{userId,jdbcType=BIGINT},
+		#{amtNo,jdbcType=VARCHAR},
+		#{amt,jdbcType=BIGINT},
+		#{opCode,jdbcType=VARCHAR},
+		SYSDATE(),
+		#{amtInfo,jdbcType=VARCHAR},
+		#{keywd,jdbcType=VARCHAR},
+		#{auditState,jdbcType=VARCHAR},
+	    #{auditUser,jdbcType=VARCHAR},
+	    #{busiCode,jdbcType=VARCHAR}
+		)
+	</insert>
+	
+	<!-- 时间段用户充值统计， 排除系统添加 -->
+	<select id="findRechargeInPeriod" resultType="double">
+		select 
+			ifnull(sum(pay_amt),0)
+		from
+			bi_pay_his
+		where
+			pay_tm between date(#{startTm}) and date(date_add(date(#{endTm}),interval 1 day))
+			AND pay_type = 'RECHARGE'
+			and state = 'SUCCESS'
+			and (platform_type = 'ZFB' or platform_type = 'WX')
+	</select>
+	
+	<select id="findRechargeCount" resultType="int">
+		select 
+			count(distinct(pay_user_id))
+		from
+			bi_pay_his
+		where
+			pay_tm between date(#{startTm}) and date(date_add(date(#{endTm}),interval 1 day))
+			AND pay_type = 'RECHARGE'
+			and state = 'SUCCESS'
+			and (platform_type = 'ZFB' or platform_type = 'WX')
+	</select>
+	
+	<select id="findFeeInPerios" resultType="double">
+		select
+			ifnull(sum(amt),0)
+		from
+			bi_user_amt_his
+		where
+			create_tm between date(#{startTm}) and date(date_add(date(#{endTm}),interval 1 day))
+			and busi_code = 'KP-TD-FEE'
+	</select>
+
+	
+	
+</mapper>

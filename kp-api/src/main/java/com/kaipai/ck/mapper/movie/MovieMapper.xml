@@ -1,0 +1,815 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kaipai.ck.mapper.movie.MovieMapper">
+	<!-- 查询记录的总数，用于分页显示 -->
+	<select id="getTotalCount" resultType="long" parameterType="hashmap">
+		select
+			count(0)
+		 from kp_movies km
+		 left join (select name,code from system_domain_value where domain_code = 'MOVE_SORT') s1 on km.mov_sort_code = s1.code
+		 left join (select name,code from system_domain_value where domain_code = 'MOVE_TYPE') s2 on km.mov_sort_code = s2.code
+		where  km.is_del = '0'
+		<if test="movState != null and movState != ''" >
+			and km.mov_state =  #{movState}
+		</if>
+		<if test="movTypCode != null and movTypCode != ''" >
+			and km.mov_typ_code like '%${movTypCode}%' 
+		</if>
+		<if test="movSortCode != null and movSortCode != ''" >
+			and km.mov_sort_code like '%${movSortCode}%'
+		</if>
+		<if test="movName != null and movName != ''" >
+			and km.mov_name like '%${movName}%'
+		</if>
+		<if test="movTitle != null and movTitle != ''" >
+			and km.mov_title like '%${movTitle}%'
+		</if>
+		<if test="myPro != null and myPro != ''" >
+			and km.user_id = #{myPro}
+		</if>
+	</select>
+	
+	<!-- 查询电影列表 -->
+	
+	<!--
+		mov_no
+		mov_name
+		pub_tm 提交时间
+		mov_desc介绍
+		mov_img_sml_url电影封面
+		mov_state审核状态
+		mov_typ_code电影类型
+		mov_sort_code电影分类
+		mov_minutes片长
+		open_tm上映时间
+		user_id发布者id -->
+	<select id="findMovies" resultType="com.kaipai.ck.model.movie.MovieModel" parameterType="hashmap">
+		select
+			km.mov_no as movNo,
+			km.mov_name as movName,
+			date_format(km.pub_tm,'%Y-%m-%d %H:%m:%s') as pubTm,
+			km.mov_desc as movDesc,
+			km.mov_img_sml_url as movImgSmlUrl,
+			km.mov_state as movState,
+			km.mov_typ_code as movTypCode,
+			s2.name as movTypName,
+			km.mov_sort_code as movSortCode,
+			s1.name as movSortName,
+			km.mov_minutes as movMinutes,
+			date_format(km.open_tm,'%Y-%m-%d') as openTime,
+			km.user_id as userId,
+			mov_desc_app as movDescApp
+		 from kp_movies km
+		 left join (select name,code from system_domain_value where domain_code = 'MOVE_SORT') s1 on km.mov_sort_code = s1.code
+		 left join (select name,code from system_domain_value where domain_code = 'MOVE_TYPE') s2 on km.mov_sort_code = s2.code
+		where km.mov_state = 'OK' and km.is_del = '0'
+		<if test="movTypCode != null and movTypCode != ''" >
+			and km.mov_typ_code = #{movTypCode}
+		</if>
+		<if test="movSortCode != null and movSortCode != ''" >
+			and km.mov_sort_code = #{movSortCode}
+		</if>
+		<if test="movName != null and movName != ''" >
+			and km.mov_name like '%${movName}%'
+		</if>
+		order by #{orderByType} desc
+		limit #{pageIndex},#{pageSize}
+	</select>
+	<!-- 电影详情 -->
+	<select id="findMovie" resultType="com.kaipai.ck.model.movie.MovieModel" parameterType="com.kaipai.ck.model.movie.MovieModel">
+		select
+			km.mov_no as movNo,
+			km.mov_name as movName,
+			date_format(km.pub_tm,'%Y-%m-%d %H:%m:%s') as pubTm,
+			km.mov_desc as movDesc,
+			km.mov_img_sml_url as movImgSmlUrl,
+			km.mov_state as movState,
+			km.mov_typ_code as movTypCode,
+			s2.name as movTypName,
+			km.mov_sort_code as movSortCode,
+			s1.name as movSortName,
+			km.mov_minutes as movMinutes,
+			date_format(km.open_tm,'%Y-%m-%d') as openTime,
+			km.user_id as userId,
+			mov_desc_app as movDescApp
+		 from kp_movies km
+		 left join (select name,code from system_domain_value where domain_code = 'MOVE_SORT') s1 on km.mov_sort_code = s1.code
+		 left join (select name,code from system_domain_value where domain_code = 'MOVE_TYPE') s2 on km.mov_sort_code = s2.code
+		where km.mov_no=#{movNo}
+	</select>
+	<!-- 我的项目列表 -->
+	<select id="findMyMovie" resultType="com.kaipai.ck.model.movie.MovieModel" parameterType="hashmap">
+		select
+			mov_no as movNo,
+			mov_name as movName,
+			date_format(pub_tm,'%Y-%m-%d %H:%m:%s') as pubTm,
+			mov_desc_pc as movDescPC,
+			mov_state as movState,
+			mov_typ_code as movTypCode,
+			mov_sort_code as movSortCode,
+			user_id as userId
+		 from kp_movies
+		where 1=1 and is_del='0'
+			and user_id=#{model.userId}
+		ORDER BY pub_tm desc
+		LIMIT #{pageIndex},#{pageSize}
+	</select>
+	
+	
+	
+	<!-- ===========================pc端查看项目============================ -->
+	
+	<!-- pc首页统计 -->
+	<select id="findPcHomeStatistics" resultType="com.kaipai.ck.model.movie.PcHomeCountModel">
+		select  
+			(select count(0) from kp_movies) movieCounts,
+			(select count(0) from kp_movies where day(pub_tm) = day(sysdate())) movieCountsToday,
+			(select count(0) from kp_users) userCounts,
+			(select count(0) from kp_users where day(reg_tm) = day(sysdate())) userCountsToday,
+			(select sum(intent_amt) from kp_movie_intention_list) intentAmtSum,
+			(select IFNULL(sum(intent_amt),0) from kp_movie_intention_list  where day(create_tm) = day(sysdate())) intentAmtSumToday
+		from dual
+	</select>
+	
+	
+	<select id="findMoviesCounts" resultType="long" parameterType="hashmap">
+		select
+			count(0) 			
+		 from (select mov_no,invest_amt_ttl,state,invest_name,invest_no from kp_movie_invests 
+		 <if test="selectType != null and selectType != ''">
+		 	where state = 'RUNNING' or state = 'FINISHED'
+		 </if>
+		 ) kmi
+		 left join kp_movies km on kmi.mov_no = km.mov_no
+		 left join kp_movie_plan plan on km.mov_no = plan.mov_no
+		where km.is_del = '0'
+		<if test="movState != null and movState != ''" >
+			and km.mov_state =  #{movState}
+		</if>
+		<if test="investState != null and investState != ''">
+			and kmi.state =  #{investState}
+		</if>
+		<if test="movTypCode != null and movTypCode != ''" >
+			and km.mov_typ_code like '%${movTypCode}%' 
+		</if>
+		<if test="movSortCode != null and movSortCode != ''" >
+			and km.mov_sort_code like '%${movSortCode}%'
+		</if>
+		<if test="movName != null and movName != ''" >
+			and km.mov_name like '%${movName}%'
+		</if>
+		<if test="movTitle != null and movTitle != ''" >
+			and km.mov_title like '%${movTitle}%'
+		</if>
+		<if test="myPro != null and myPro != ''" >
+			and km.user_id = #{myPro}
+		</if>
+	</select>
+	
+	<!-- 查询电影列表 -->
+	
+	<select id="findMoviesPage" resultType="com.kaipai.ck.model.movie.MovieModel" parameterType="hashmap">
+	select t.* from (
+		select
+			km.mov_no as movNo,
+			km.mov_title as movTitle,
+			date_format(km.pub_tm,'%Y-%m-%d %H:%m:%s') as pubTm,
+			km.mov_desc as movDesc,
+			km.mov_state as movState,
+			km.mov_step_code as movStepCode,
+			km.ip_source_code as ipSourceCode,
+			km.mov_sort_code as movSortCode,
+			date_format(km.mov_st,'%Y-%m-%d') as movCollSt,
+			date_format(km.mov_ed,'%Y-%m-%d') as movCollEd,
+			(select GROUP_CONCAT(kmls.lps_code) from 
+				kp_movie_lig_sps kmls where kmls.mov_no = km.mov_no group by kmls.mov_no) movHighInfo,
+			(select GROUP_CONCAT(sdv.name) from 
+				system_domain_value sdv,kp_movie_sorts kms where sdv.domain_code = 'MOVE_SORT' and sdv.code = kms.mov_sort_code 
+				and kms.mov_no = km.mov_no group by kms.mov_no) movSortName,
+			km.mov_minutes as movMinutes,
+			date_format(km.open_tm,'%Y-%m-%d') as openTime,
+			km.user_id as userId,
+			km.list_pic_url as listPicUrl,
+			km.detail_pic_url as detailPicUrl,
+			(select count(0) from kp_movie_focus kmp where kmp.mov_no = km.mov_no) as praisesCount,
+			<if test="userId != null and userId !=''">
+			(select count(0) from kp_movie_focus kmp where kmp.mov_no = km.mov_no and kmp.user_id = #{userId}) isPraise,
+			</if>
+			(select name from kp_movie_teams kmt where kmt.act_role_code = 'DY' and  kmt.mov_no = km.mov_no limit 1) daoYan,
+			kmi.invest_amt_ttl as reqAmt,
+			kmi.state as investState,
+			kmi.invest_name as movName,
+			kmi.invest_no as investNo,
+			kmi.orderby,
+			
+			(select sum(kmil.invest_amt) from kp_movie_invest_list kmil where
+				kmil.invest_no = kmi.invest_no and kmil.mov_no = kmi.mov_no) as ycMoney
+			
+		 from (select mov_no,invest_amt_ttl,state,invest_name,invest_no,orderby from kp_movie_invests 
+		 <if test="selectType != null and selectType != ''">
+		 	where state = 'RUNNING' or state = 'FINISHED'
+		 </if>
+		 order by orderby asc
+		 limit #{pageIndex},#{pageSize}
+		 ) kmi
+		 left join kp_movies km on kmi.mov_no = km.mov_no
+		 left join kp_movie_plan plan on km.mov_no = plan.mov_no
+		where km.is_del = '0'
+		<if test="movState != null and movState != ''" >
+			and km.mov_state =  #{movState}
+		</if>
+		<if test="investState != null and investState != ''">
+			and kmi.state =  #{investState}
+		</if>
+		<if test="movTypCode != null and movTypCode != ''" >
+			and km.mov_typ_code like '%${movTypCode}%' 
+		</if>
+		<if test="movSortCode != null and movSortCode != ''" >
+			and km.mov_sort_code like '%${movSortCode}%'
+		</if>
+		<if test="movName != null and movName != ''" >
+			and km.mov_name like '%${movName}%'
+		</if>
+		<if test="movTitle != null and movTitle != ''" >
+			and km.mov_title like '%${movTitle}%'
+		</if>
+		<if test="myPro != null and myPro != ''" >
+			and km.user_id = #{myPro}
+		</if>
+		) t 
+		order by t.orderby asc
+		<if test="orderType != '' and orderType != null">
+			<if test="orderType == 'HOT'">, t.praisesCount</if>
+			<if test="orderType == 'NEW'">, t.openTime</if>
+			desc
+		</if>
+	</select>
+
+	<!-- 项目详细信息 -->
+	<select id="getMovieInfoByMovNo" resultType="com.kaipai.ck.model.movie.MovieModel" parameterType="hashmap">
+			select
+		 	km.mov_no AS movNo,        
+			km.mov_name as movName,        
+			date_format(km.pub_tm,'%Y-%m-%d %H:%m:%s') AS pubTm,          
+			km.drama_flg AS dramaFlg,           
+			km.prod_flg AS prodFlg,          
+			km.actor_flg AS actorFlg,        
+			km.amt_flg AS amtFlg,         
+			km.mov_desc AS movDesc,            
+			km.city_code AS cityCode,        
+			km.city_name AS cityName,     
+			ad.parentCode as provienceCode,  
+			(select t.name from address t where t.`level` = 1 and t.code = ad.parentCode) provienceName,
+			km.mobile AS mobile,        
+			km.mov_img_url AS movImgUrl,          
+			km.mov_state AS movState, 
+			km.mov_typ_code AS movTypCode,   
+			sy1.name as movTypName,      
+			(select GROUP_CONCAT(sdv.code) from 
+				system_domain_value sdv,kp_movie_sorts kms where sdv.domain_code = 'MOVE_SORT' and sdv.code = kms.mov_sort_code 
+				and kms.mov_no = km.mov_no group by kms.mov_no) AS movSortCode, 
+			(select GROUP_CONCAT(sdv.name) from 
+				system_domain_value sdv,kp_movie_sorts kms where sdv.domain_code = 'MOVE_SORT' and sdv.code = kms.mov_sort_code 
+				and kms.mov_no = km.mov_no group by kms.mov_no) movSortName,  
+			km.mov_minutes AS movMinutes,      
+			date_format(km.open_tm,'%Y-%m-%d') AS openTime,     
+			km.is_del AS isDel,            
+			km.user_id AS userId,            
+			km.mov_step_code as movStepCode,
+			(select GROUP_CONCAT(kmls.lps_code) from 
+				kp_movie_lig_sps kmls where kmls.mov_no = km.mov_no group by kmls.mov_no) movHighInfo,
+			km.ip_source_code as ipSourceCode,
+			
+			date_format(km.mov_st,'%Y-%m-%d') as movSt,
+			date_format(km.mov_ed,'%Y-%m-%d') as movEd,
+			km.mov_title as movTitle,
+			km.list_pic_url as listPicUrl,
+			km.detail_pic_url as detailPicUrl,
+			kmu.mov_url as userMovUrl,
+			kmu.mov_desc as userMovDesc,
+			kmu.usr_mv_id as usrMvId,
+			kmu.self_mov_name as selfMovName ,
+			(select count(0) from kp_movie_focus kmp where kmp.mov_no = km.mov_no) as praisesCount,
+			(select count(0) from kp_movie_focus kmp where kmp.mov_no = km.mov_no and kmp.user_id = #{userId}) isPraise,
+			<if test="investNo != null and investNo != ''">
+			(select sum(kmil.invest_amt) from kp_movie_invest_list kmil where kmil.is_del = '0' and kmil.state='OK' and  kmil.mov_no = km.mov_no and kmil.invest_no = #{investNo}) ycMoney,
+			</if>
+			kmi.invest_amt_ttl as reqAmt,
+			kmi.state as investState,
+			kmi.invest_name as movName,
+			kmi.invest_no as investNo
+			
+		from kp_movies km
+		left join (select * from address where level=2) ad on km.city_code = ad.code
+		left join (select code,name from system_domain_value where domain_code='MOVE_TYPE')
+		 sy1 on km.mov_typ_code = sy1.code
+		left join (select code,name from system_domain_value where domain_code='MOVE_SORT') 
+		 sy2 on km.mov_sort_code = sy2.code
+		left join (select kmum.mov_no,kmum.usr_mv_id,kuml.mov_url,kuml.mov_desc,kuml.self_mov_name
+		 from kp_movie_user_movs kmum,kp_user_movie_list kuml 
+		where kmum.mov_no = #{movNo} and kmum.usr_mv_id = kuml.usr_mv_id) kmu
+		on km.mov_no = kmu.mov_no
+		left join (select invest_no,mov_no,state,invest_name,invest_amt_ttl from kp_movie_invests
+		<if test="investNo != null and investNo != ''">
+		where invest_no = #{investNo}
+		</if>) kmi
+		on km.mov_no = kmi.mov_no
+		 where km.mov_no = #{movNo}
+	</select>
+	
+	<!-- 添加项目 -->
+	<insert id="insertMovie" parameterType="com.kaipai.ck.model.movie.MovieModel">
+		insert into kp_movies(
+			mov_no,
+			user_id,
+			mov_name,
+			pub_tm,
+			drama_flg,prod_flg,actor_flg,amt_flg,
+			mov_desc,
+			mov_desc_app,
+			mov_desc_h5,
+			mov_desc_pc,
+			city_code,city_name,
+			mobile,
+			mov_img_url,mov_img_sml_url,mov_img_mid_url,mov_img_big_url,
+			mov_state,mov_typ_code,mov_sort_code,mov_minutes,
+			open_tm,
+			is_del,
+			mov_step_code,
+			mov_high_info,
+			mov_st,
+			mov_ed,
+			mov_coll_st,
+			mov_coll_ed,
+			mov_title,
+			list_pic_url,
+			detail_pic_url,
+			ip_source_code,
+			mov_source
+		)values(
+			#{movNo},
+			#{userId},
+			#{movName},
+			SYSDATE(),
+			#{dramaFlg},#{prodFlg},#{actorFlg},#{amtFlg},
+			#{movDesc},
+			#{movDescApp},
+			#{movDescH5},
+			#{movDescPc},
+			#{cityCode},#{cityName},
+			#{mobile},
+			#{movImgUrl},#{movImgSmlUrl},#{movImgMidUrl},#{movImgBigUrl},
+			#{movState},#{movTypCode},#{movSortCode},#{movMinutes},
+			#{openTime},
+			0,
+			#{movStepCode},
+			#{movHighInfo},
+			#{movSt},
+			#{movEd},
+			#{movCollSt},
+			#{movCollEd},
+			#{movTitle},
+			#{listPicUrl},
+			#{detailPicUrl},
+			#{ipSourceCode},
+			#{movSource}
+		)
+	</insert>
+
+	<!-- 编辑项目 -->
+	<update id="updateMovie" parameterType="com.kaipai.ck.model.movie.MovieModel">
+		update kp_movies
+		set
+			mov_name=#{movName},
+			mov_img_url=#{movImgUrl},
+			mov_img_sml_url=#{movImgSmlUrl},
+			mov_img_mid_url=#{movImgMidUrl},
+			mov_img_big_url=#{movImgBigUrl},
+			mov_desc=#{movDesc},
+			mov_desc_app=#{movDescApp},
+			mov_desc_h5=#{movDescH5},
+			mov_desc_pc=#{movDescPc},
+			drama_flg=#{dramaFlg},prod_flg=#{prodFlg},
+			actor_flg=#{actorFlg},amt_flg=#{amtFlg},
+			mobile=#{mobile},
+			<if test="cityCode != null and cityCode!='' ">
+			city_code=#{cityCode},
+			city_name=#{cityName},
+			</if>
+			mov_state=#{movState},
+			mov_typ_code=#{movTypCode},
+			mov_sort_code=#{movSortCode},
+			mov_minutes=#{movMinutes},
+			open_tm=#{openTime},
+			
+			mov_high_info = #{movHighInfo},
+			mov_step_code = #{movStepCode},
+			mov_st = #{movSt},
+			mov_ed = #{movEd},
+			mov_coll_st = #{movCollSt},
+			mov_coll_ed = #{movCollEd},
+			mov_title = #{movTitle},
+			list_pic_url = #{listPicUrl},
+			detail_pic_url = #{detailPicUrl},
+			ip_source_code = #{ipSourceCode}
+		where
+			mov_no=#{movNo}
+	</update>
+	
+	<update id="updateMovieIsNotNull" parameterType="com.kaipai.ck.model.movie.MovieModel">
+	update kp_movies
+		set mov_no = #{movNo}
+	       <if test="movName != null and '' != movName">
+				, mov_name = #{movName}
+			</if>
+	       <if test="dramaFlg != null and '' != dramaFlg">
+				, drama_flg = #{dramaFlg}
+			</if>
+	       <if test="prodFlg != null and '' != prodFlg">
+				, prod_flg = #{prodFlg}
+			</if>
+	       <if test="actorFlg != null and '' != actorFlg">
+				, actor_flg = #{actorFlg}
+			</if>
+	       <if test="amtFlg != null and '' != amtFlg">
+				, amt_flg = #{amtFlg}
+			</if>
+	       <if test="movDesc != null and '' != movDesc">
+				, mov_desc = #{movDesc}
+			</if>
+	       <if test="movDescApp != null and '' != movDescApp">
+				, mov_desc_app = #{movDescApp}
+			</if>
+	       <if test="movDescH5 != null and '' != movDescH5">
+				, mov_desc_h5 = #{movDescH5}
+			</if>
+	       <if test="movDescPc != null and '' != movDescPc">
+				, mov_desc_pc = #{movDescPc}
+			</if>
+	       <if test="cityCode != null and '' != cityCode">
+				, city_code = #{cityCode}
+			</if>
+	       <if test="cityName != null and '' != cityName">
+				, city_name = #{cityName}
+			</if>
+	       <if test="mobile != null and '' != mobile">
+				, mobile = #{mobile}
+			</if>
+	       <if test="movImgUrl != null and '' != movImgUrl">
+				, mov_img_url = #{movImgUrl}
+			</if>
+	       <if test="movImgSmlUrl != null and '' != movImgSmlUrl">
+				, mov_img_sml_url = #{movImgSmlUrl}
+			</if>
+	       <if test="movImgMidUrl != null and '' != movImgMidUrl">
+				, mov_img_mid_url = #{movImgMidUrl}
+			</if>
+	       <if test="movImgBigUrl != null and '' != movImgBigUrl">
+				, mov_img_big_url = #{movImgBigUrl}
+			</if>
+	       <if test="movState != null and '' != movState">
+				, mov_state = #{movState}
+			</if>
+	       <if test="movTypCode != null and '' != movTypCode">
+				, mov_typ_code = #{movTypCode}
+			</if>
+	       <if test="movSortCode != null and '' != movSortCode">
+				, mov_sort_code = #{movSortCode}
+			</if>
+	       <if test="movMinutes != null and '' != movMinutes">
+				, mov_minutes = #{movMinutes}
+			</if>
+	       <if test="openTime != null and '' != openTime">
+				, open_tm = #{openTime}
+		   </if>
+	       <if test="isDel != null and '' != isDel">
+				, is_del = #{isDel}
+			</if>
+	       <if test="auditReason != null and '' != auditReason">
+				, audit_reason = #{auditReason}
+			</if>
+	       <if test="auditUserId != null and '' != auditUserId">
+				, audit_user_id = #{auditUserId}
+			</if>
+	       <if test="auditUserName != null and '' != auditUserName">
+				, audit_user_name = #{auditUserName}
+			</if>
+	       <if test="auditTime != null and '' != auditTime">
+				, audit_tm = #{auditTime}
+		   </if>
+	       <if test="movStepCode != null and '' != movStepCode">
+				, mov_step_code = #{movStepCode}
+			</if>
+	       <if test="movHighInfo != null and '' != movHighInfo">
+				, mov_high_info = #{movHighInfo}
+			</if>
+	       <if test="movSt != null and '' != movSt">
+				, mov_st = #{movSt}
+		   </if>
+	       <if test="movEd != null and '' != movEd">
+				, mov_ed = #{movEd}
+		   </if>
+	       <if test="movCollSt != null and '' != movCollSt">
+				, mov_coll_st = #{movCollSt}
+		   </if>
+	       <if test="movCollEd != null and '' != movCollEd">
+				, mov_coll_ed = #{movCollEd}
+		   </if>
+	       <if test="movTitle != null and '' != movTitle">
+				, mov_title = #{movTitle}
+			</if>
+	       <if test="listPicUrl != null and '' != listPicUrl">
+				, list_pic_url = #{listPicUrl}
+			</if>
+	       <if test="detailPicUrl != null and '' != detailPicUrl">
+				, detail_pic_url = #{detailPicUrl}
+			</if>
+	       <if test="movCollSt != null and '' != movCollSt">
+				, mov_coll_st = #{movCollSt}
+		   </if>
+	       <if test="movCollEd != null and '' != movCollEd">
+				, mov_coll_ed = #{movCollEd}
+		   </if>
+	       <if test="ipSourceCode != null and '' != ipSourceCode">
+				, ip_source_code = #{ipSourceCode}
+		   </if>
+		   where
+			mov_no=#{movNo}
+	</update>
+	
+	
+	<!-- ===============================电影分类========================= -->
+	<select id="selectMovieSort" parameterType="String" resultType="String">
+		select 
+			mov_sort_code movSortCode
+		from kp_movie_sorts where mov_no = #{movNo}
+	</select>
+	
+	<insert id="insertMovieSort" parameterType="com.kaipai.ck.model.movie.MovieModel">
+		insert into kp_movie_sorts(mov_no,mov_sort_code)
+		values(#{movNo},#{movSortCode})
+	</insert>
+	
+	<delete id="delMovieSort" parameterType="String">
+		delete from kp_movie_sorts where mov_no = #{movNo}
+	</delete>
+	
+	
+	<!-- ===============================电影平台========================= -->
+	<select id="selectMoviePlatfrom" resultType="String" parameterType="String">
+		select 
+			sdv.name platformCode
+		from (select platform_code from kp_movie_platform where mov_no = #{movNo} ) kmp
+		left join (select code , name from system_domain_value where domain_code = 'PLAY_PLATFORM') sdv
+		on kmp.platform_code = sdv.code 
+	</select>
+	
+	<insert id="insertMoviePlatfrom" parameterType="com.kaipai.ck.model.movie.MovieModel">
+		insert into kp_movie_platform(mov_no,platform_code)
+		values(#{movNo},#{platformCode})
+	</insert>
+	
+	<delete id="delMoviePlatfrom" parameterType="String">
+		delete from kp_movie_platform where mov_no = #{movNo}
+	</delete>
+	
+	
+	<!-- ===============================用户关注电影项目信息列表========================= -->
+	
+	<insert id="insertMovieFocus" parameterType="com.kaipai.ck.model.movie.MovieModel">
+		insert into kp_movie_focus(mov_no,user_id,foc_tm,is_vaild)
+		values(#{movNo},#{userId},SYSDATE(),1)
+	</insert>
+	
+	<delete id="delMoviePlatFocus" parameterType="com.kaipai.ck.model.movie.MovieModel">
+		delete from kp_movie_focus where mov_no = #{movNo} and user_id = #{userId}
+	</delete>
+	
+	
+	<!-- ==============================投资人列表================================ -->
+	
+	<!-- 投资人列表 -->
+	<select id="selectTzUserList" resultType="com.kaipai.ck.model.movie.UserMovieInvestowModel" parameterType="hashmap">
+		select 
+			ku.icon_url iconUrl,
+			kmil.mov_no movNo,
+			kmil.intent_usr_name nickName,
+			sum(kmil.invest_amt) money,
+			min(kmil.create_tm) dateTm
+		from (select * from kp_movie_invest_list where state = 'OK' and mov_no = #{movNo} and is_del = '0') kmil 
+		left join kp_users ku on kmil.invest_usr_id = ku.user_id
+		group by kmil.invest_usr_id
+		limit #{index},#{size}
+	</select>
+	
+	
+	
+	<!-- ===================================我的投资，我的关注，我的意向========================================= -->
+	
+	<!-- 我的投资 -->
+	<select id="selectMyTzList" resultType="com.kaipai.ck.model.movie.UserMovieInvestowModel" parameterType="hashmap">
+		select 
+			kmil.*,
+			kmi.state,
+			km.mov_title movTilte,
+			km.mov_step_code movStepCode
+		from (select sum(invest_amt) money,mov_no movNo,min(create_tm) dateTm ,invest_no investNo 
+		from kp_movie_invest_list 
+		where invest_usr_id = #{userId} and state = 'OK' and is_del = '0' group by mov_no ) kmil
+		left join kp_movies km on kmil.movNo = km.mov_no
+		left join kp_movie_invests kmi on kmil.investNo = kmi.invest_no
+		<if test="movTitle != null and movTitle != ''">
+		where km.mov_title like '%${movTitle}%'
+		</if>
+		limit #{index},#{size} 
+	</select>
+	
+	<select id="selectMyTzCounts" resultType="long" parameterType="hashmap">
+		select 
+			count(0)
+		from (select sum(invest_amt) money,mov_no movNo,min(create_tm) dateTm ,invest_no investNo 
+		from kp_movie_invest_list 
+		where invest_usr_id = #{userId} and state = 'OK' and is_del = '0' group by mov_no ) kmil
+		left join kp_movies km on kmil.movNo = km.mov_no
+		<if test="movTitle != null and movTitle != ''">
+		where km.mov_title like '%${movTitle}%'
+		</if>
+	</select>
+	
+	
+	<!-- 我的关注 -->
+	<select id="selectMyGzList" resultType="com.kaipai.ck.model.movie.UserMovieInvestowModel" parameterType="hashmap">
+		select 
+			kmf.mov_no movNo,
+			kmf.foc_tm dateTm,
+			kmp.req_amt money,
+			km.mov_st movCollSt,
+			km.mov_ed movCollEd,
+			km.detail_pic_url detailPidUrl,
+			km.mov_title movTilte,
+			km.mov_step_code movStepCode,
+			kmi.state,
+			kmi.invest_no investNo,
+			(select sum(i.invest_amt) from kp_movie_invest_list i where i.is_del = '0' and i.state='OK' and i.mov_no = kmf.mov_no group by i.mov_no ) as ycMoney
+		from (select mov_no,foc_tm from kp_movie_focus where user_id = #{userId}) kmf
+		left join kp_movies km on kmf.mov_no = km.mov_no
+		left join (select mov_no,invest_no,state from kp_movie_invests where is_del = '0' ) kmi on kmf.mov_no = kmi.mov_no
+		left join kp_movie_plan kmp on kmf.mov_no = kmp.mov_no
+		where 1=1 
+		<if test="movTitle != null and movTitle != ''">
+			and km.mov_title like '%${movTitle}%'
+		</if>
+		limit #{index},#{size}
+	</select>
+	
+	<select id="selectMyGzCounts" resultType="long" parameterType="hashmap">
+		select 
+			count(0)
+		from (select mov_no,foc_tm from kp_movie_focus where user_id = #{userId}) kmf
+		left join kp_movies km on kmf.mov_no = km.mov_no
+		<if test="movTitle != null and movTitle != ''">
+		where km.mov_title like '%${movTitle}%'
+		</if>
+	</select>
+	
+	
+	<!-- 我的意向 -->
+	<select id="selectMyYxList" resultType="com.kaipai.ck.model.movie.UserMovieInvestowModel" parameterType="hashmap">
+		select 
+			kmf.mov_no movNo,
+			kmf.dateTm dateTm,
+			kmf.invest_no investNo,
+			kmi.state,
+			kmi.invest_amt_ttl money,
+			kmp.busi_plan_url busiPlanUrl,
+			km.mov_st movCollSt,
+			km.mov_ed movCollEd,
+			km.mov_step_code movStepCode,
+			km.detail_pic_url detailPidUrl,
+			km.mov_title movTilte,
+			(select sum(kmil.invest_amt) from kp_movie_invest_list kmil where kmil.is_del = '0' and kmil.state='OK' and kmil.invest_no = kmf.invest_no) as ycMoney
+		from (select mov_no,min(create_tm) dateTm,invest_no,state  from kp_movie_intention_list where intent_usr_id = #{userId} group by mov_no) kmf
+		left join kp_movie_invests kmi on kmf.invest_no = kmi.invest_no
+		left join kp_movies km on kmf.mov_no = km.mov_no
+		left join kp_movie_plan kmp on kmf.mov_no = kmp.mov_no
+		<if test="movTitle != null and movTitle != ''">
+		where km.mov_title like '%${movTitle}%'
+		</if>
+		limit #{index},#{size}
+	</select>
+	
+	<select id="selectMyYxCounts" resultType="long" parameterType="hashmap">
+		select 
+			count(0)
+		from (select mov_no,min(create_tm) dateTm,invest_no,state  from kp_movie_intention_list where intent_usr_id = #{userId} group by mov_no) kmf
+		left join kp_movies km on kmf.mov_no = km.mov_no
+		<if test="movTitle != null and movTitle != ''">
+		where km.mov_title like '%${movTitle}%'
+		</if>
+	</select>
+	
+	
+	
+	
+	
+	<!-- =====================================投递意向===================================== -->
+	<!-- 项目信息 -->
+	<select id="selectMovieIntention" resultType="com.kaipai.ck.model.movie.UserMovieInvestowModel" parameterType="String">
+		select 
+			kmi.mov_no movNo,
+			kmi.invest_no investNo,
+			kmi.state state,
+			kmi.invest_name movTilte,
+			kmi.invest_amt_ttl money,
+			km.mov_step_code movStepCode,
+			km.detail_pic_url detailPidUrl,
+			kmp.busi_plan_url busiPlanUrl,
+			(select sum(kmil.invest_amt) from kp_movie_invest_list kmil where kmil.is_del = '0' and kmil.state='OK' and kmil.invest_no = kmi.invest_no) as ycMoney
+		from (select * from kp_movie_invests  where is_del = '0' and invest_no = #{investNo}) kmi
+		left join kp_movies km on kmi.mov_no = km.mov_no
+		left join kp_movie_plan kmp on kmi.mov_no = kmp.mov_no
+
+	</select>
+	
+	
+	
+	
+	<!-- ==============================历史案例列表================================ -->
+	<!-- 历史案例列表 -->
+	<select id="selectHisMovieList" resultType="com.kaipai.ck.model.movie.UserMovieInvestowModel" parameterType="hashmap">
+		
+		select 
+			kmi.invest_no investNo,
+			kmi.mov_no movNo,
+			kmi.invest_name movTilte,
+			kmi.create_tm dateTm,
+			km.mov_high_info movHighInfo,
+			km.mov_step_code movStepCode,
+			km.list_pic_url iconUrl,
+			km.detail_pic_url detailPidUrl,
+			kmp.req_amt money,
+			(select sum(kmil.invest_amt) from kp_movie_invest_list kmil where kmil.is_del = '0' and kmil.state='OK' and kmil.invest_no = kmi.invest_no) ycMoney,
+			kmi.invest_amt_ttl zcMoney
+		from kp_movie_invests kmi
+		left join kp_movie_plan kmp on kmi.mov_no = kmp.mov_no
+		left join kp_movies km  on kmi.mov_no = km.mov_no
+		where kmi.state = 'FINISHED'
+		and kmi.is_del = '0' 
+		limit #{index},#{size}
+	</select>
+	
+	
+	
+	<!-- ==============================我的项目列表================================ -->
+	
+	<select id="findMyMoviesPage" resultType="com.kaipai.ck.model.movie.MovieModel" parameterType="hashmap">
+	
+		select
+			km.mov_no as movNo,
+			km.mov_name as movName,
+			km.mov_title as movTitle,
+			km.mov_state as movState,
+			date_format(km.pub_tm,'%Y-%m-%d %H:%m:%s') as pubTm,
+			km.mov_desc as movDesc,
+			km.mov_state as movState,
+			date_format(km.mov_st,'%Y-%m-%d') as movCollSt,
+			date_format(km.mov_ed,'%Y-%m-%d') as movCollEd,
+			date_format(km.open_tm,'%Y-%m-%d') as openTime,
+			km.user_id as userId,
+			list_pic_url as listPicUrl,
+			plan.req_amt as reqAmt,
+			kmi.state as investState,
+			kmi.invest_no as investNo
+			
+		 from  kp_movies km 
+		 left join (select mov_no,invest_amt_ttl,state,invest_name,invest_no from kp_movie_invests 
+		 	<!-- where state = 'RUNNING' -->
+		 ) kmi on  km.mov_no = kmi.mov_no 
+		 left join kp_movie_plan plan on km.mov_no = plan.mov_no
+		where km.is_del = '0'
+		<if test="movState != null and movState != ''" >
+			and km.mov_state =  #{movState}
+		</if>
+		<if test="movTypCode != null and movTypCode != ''" >
+			and km.mov_typ_code like '%${movTypCode}%' 
+		</if>
+		<if test="movSortCode != null and movSortCode != ''" >
+			and km.mov_sort_code like '%${movSortCode}%'
+		</if>
+		<if test="movName != null and movName != ''" >
+			and km.mov_name like '%${movName}%'
+		</if>
+		<if test="movTitle != null and movTitle != ''" >
+			and km.mov_title like '%${movTitle}%'
+		</if>
+		<if test="myPro != null and myPro != ''" >
+			and km.user_id = #{myPro}
+		</if>
+		limit #{pageIndex},#{pageSize}
+	</select>
+	
+	
+	
+</mapper>

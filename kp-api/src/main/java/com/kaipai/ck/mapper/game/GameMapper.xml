@@ -1,0 +1,700 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kaipai.ck.mapper.game.GameMapper">
+<!-- 	游戏详情 -->
+	<select id="findGameDetail" resultType="com.kaipai.ck.model.games.GameDeatilModel">
+		select
+			g.gm_no as gameNo,
+			g.gm_pic_url as imgs,
+			g.gm_title as title,
+			g.gm_type as gameType,
+			g.prize_code as prizeCode,
+			g.prize_name as prizeName,
+			g.lm_join_num as joinTotal,
+			(select count(0) from gm_join_his where gm_no = #{gameNo}) as joinNum,
+			g.join_fee as joinFee,
+			g.prize_status as state,
+			g.lst_open as openTm
+		from
+			gm_activities g
+		where
+			g.gm_no = #{gameNo} and g.state = 'ON'
+	</select>
+<!-- 	游戏参与 的参与号 -->
+	<select id="findUserJoinNoByGameNo" resultType="string">
+		select 
+			group_concat(join_no) 
+			from gm_join_his t 
+		where 
+			t.gm_no = #{gameNo} and t.user_id = #{userId}
+	</select>
+	
+<!-- 	开奖中的游戏 -->
+	<select id="findPrizingGames" resultType="com.kaipai.ck.model.games.LotteryInfo">
+		select
+			g.gm_no as gameNo,
+			g.lst_open as openTm,
+			g.lottery_issue as issue
+		from
+			gm_activities g
+		where
+			g.prize_status = 'PRIZING' and g.state = 'ON'
+	</select>
+	
+	<select id="findGamePrizeDetail" resultType="com.kaipai.ck.model.games.GamePrizeModel">
+		select
+			gp.prize_code as code,
+			gp.prize_name as name,
+			gp.prize_amt as value,
+			gp.prize_dtl as description,
+			gp.create_tm as creatTm,
+			gp.state as state,
+			concat_ws(',',gp.prize_pic1,gp.prize_pic2,gp.prize_pic3) as imgs
+		from
+			gm_prizes gp
+		where
+			gp.prize_code=#{prizeCode} and gp.state='ON'
+	</select>
+	
+<!-- 	修改游戏的状态 -->
+	<update id="updateGameState">
+		update 
+			gm_activities 
+		<set>
+			prize_status = #{state},
+			<if test="openTm != null">
+				lst_open = #{openTm},
+			</if>
+			<if test="lotteryIssue != null and lotteryIssue != ''">
+				lottery_issue = #{lotteryIssue},
+			</if>
+		</set>
+		where 
+			gm_no = #{gameNo} and state = 'ON'
+	</update>
+<!-- 	参与游戏的用户 -->
+	<select id="findGameJoinUsers" resultType="com.kaipai.ck.model.games.JoinUserListModel">
+		select
+			*
+		from
+			(select
+				gh.nick_name as name,
+				gh.gm_no as gameNo,
+				gh.user_id as userId,
+				gh.join_no as joinNo,
+				max(gh.join_tm) as joinTm,
+				count(gh.user_id) as joinTimes
+			from 
+				gm_join_his gh
+			where
+				gh.gm_no = #{gameNo}
+			group by
+				gh.user_id) t
+		where
+			1=1 
+			<if test="lastTm != null">
+				and t.joinTm <![CDATA[<]]> #{lastTm}
+			</if>
+		order by 
+			t.joinTm desc
+		limit
+			#{rows}
+	</select>
+<!-- 	游戏列表 -->
+	<select id="findGameList" resultType="com.kaipai.ck.model.games.GameListModel">
+		select
+			g.gm_no as gameNo,
+			g.prize_name as prizeName,
+			g.lm_join_num as total,
+			g.create_tm as createTm,
+			g.gm_type as gameType,
+			g.prize_status as state,
+			g.gm_pic_url as prizeImg,
+			gp.prize_name as prizeName,
+			g.lst_open as openTm
+		from
+			gm_activities g
+		left join
+			gm_prizes as gp on g.prize_code = gp.prize_code
+		where
+			g.state = 'ON'
+		<if test="lastTm != null and state == 'WAITING'.toString()">
+			and g.create_tm <![CDATA[<]]> #{lastTm}
+		</if>
+		<if test="lastTm != null and (state == 'PRIZING'.toString() or state == 'FINISH'.toString())">
+			and g.lst_open <![CDATA[<]]> #{lastTm}
+		</if>
+		<if test="state != null and state != ''">
+			and g.prize_status = #{state}
+		</if>
+		order by 
+		<if test="state == 'PRIZING'.toString() or state == 'FINISH'.toString()">
+			g.lst_open desc
+		</if>
+		<if test="state == 'WAITING'.toString()">
+			g.create_tm desc
+		</if>
+		limit
+			#{rows}
+	</select>
+	
+<!-- 	参与 者时间 -->
+	<select id="findGameJoinerTm" resultType="string">
+		select 
+		<if test="flag == 'FIRST'.toString()">
+			min(join_tm)
+		</if>
+		<if test="flag == 'LAST'.toString()">
+			max(join_tm)
+		</if>
+		from 
+			gm_join_his 
+		where 
+			gm_no=#{gameNo} and id_del = '0'
+	</select>
+<!-- 游戏参与 人数 -->
+	<select id="findGameJoinCount" resultType="long">
+		select 
+			count(0)
+		from 
+			gm_join_his
+		where
+			gm_no = #{gameNo} and id_del = '0'
+	</select>
+<!-- 	用户参与游戏次数 -->
+	<select id="findGameUserJoinCount" resultType="long">
+		select 
+			count(0)
+		from 
+			gm_join_his
+		where
+			gm_no = #{gameNo} and user_id = #{userId} and id_del = '0'
+	</select>
+	
+	<select id="findGameWinnerIsExists" resultType="long">
+		select 
+			count(0)
+		from 
+			gm_gt_prize_his
+		where
+			gm_no = #{gameNo} and  id_del = '0'
+	</select>
+<!-- 	用户参与游戏号 -->
+	<select id="findGameJoinHisByJoinNo" resultType="com.kaipai.ck.model.games.GameJoinHisModel">
+		select
+			jh.gm_no as gameNo,
+			jh.user_id as userId,
+			jh.nick_name as nickName,
+			jh.join_ip as ip
+		from
+			gm_join_his jh
+		where
+			jh.gm_no = #{gameNo} and jh.join_no = #{joinNo} and id_del = '0'
+	</select>
+	
+<!-- 	参与游戏 -->
+	<insert id="createJoinHis" parameterType="com.kaipai.ck.model.games.GameJoinHisModel">
+		insert into gm_join_his(`gm_no`,`join_no`,`user_id`,`nick_name`,`join_type`,`join_ip`,`join_tm`)
+		values(#{gameNo},#{joinNo},#{userId},#{nickName},#{joinType},#{ip},#{joinTm})
+	</insert>
+	
+<!-- 	添加中奖者 -->
+	<insert id="createGameWinner" parameterType="com.kaipai.ck.model.games.GameWinnerHisModel">
+		insert into 
+			gm_gt_prize_his(`gm_no`,`join_no`,`user_id`,`nick_name`,`prize_code`,`join_ip`,`gdsfl_code`,`address_id`)
+		values(#{gameNo},#{winNo},#{userId},#{winnerName},#{prizeCode},#{ip},#{gdsflCode},'')
+	</insert>
+<!-- 	揭奖结果 -->
+	<select id="findGameWinnerList" resultType="com.kaipai.ck.model.games.GameWinnerHisModel">
+		select 
+			gph.gm_no as gameNo,
+			gph.join_no as winNo,
+			gph.user_id as userId,
+			gph.nick_name as winnerName,
+			gph.create_tm as openTm,
+			(select count(0) from gm_join_his js where js.gm_no = gameNo and js.user_id = userId) as count,
+			(select u.icon_url from kp_users u where u.user_id = userId) as winnerIcon
+		from
+			gm_gt_prize_his gph
+		join gm_activities g on g.gm_no = gph.gm_no and g.state= 'ON'
+		where
+			gph.id_del = '0'
+		<if test="lastTm != null">
+			and gph.create_tm <![CDATA[<]]> #{lastTm}
+		</if>
+		order by
+			gph.create_tm desc
+		limit 
+			#{rows}
+	</select>
+<!-- 	中奖者 -->
+	<select id="getWinnerByGameNo" resultType="com.kaipai.ck.model.games.GameWinnerHisModel">
+		select 
+			gph.gm_no as gameNo,
+			gph.join_no as winNo,
+			gph.user_id as userId,
+			gph.nick_name as winnerName,
+			gph.create_tm as openTm,
+			(select count(0) from gm_join_his js where js.gm_no = gameNo and js.user_id = userId) as count,
+			(select u.icon_url from kp_users u where u.user_id = userId) as winnerIcon
+		from
+			gm_gt_prize_his gph
+		where
+			gph.id_del = '0' and gph.gm_no = #{gameNo}
+		
+	</select>
+
+	<!-- 	用户参与 的游戏-->
+	<select id="findGameListByUserId" resultType="com.kaipai.ck.model.games.GameListModel">
+		select
+			jh.gm_no as gameNo,
+			jh.join_tm as joinTm,
+			g.gm_pic_url as prizeImg,
+			g.prize_name as prizeName,
+			g.prize_status as state,
+			g.lst_open as openTm,
+			g.create_tm as createTm,
+			g.lm_join_num as total
+		from
+			gm_join_his jh
+		join 
+			gm_activities g on g.gm_no = jh.gm_no and g.state = 'ON'
+		where
+			jh.user_id = #{userId} and g.prize_status = #{state}
+		<if test="lastTm != null">
+			and jh.join_tm <![CDATA[<]]> #{lastTm}
+		</if>
+		group by
+			jh.gm_no
+		order by
+			jh.join_tm desc
+		limit
+			#{rows}
+	</select>
+<!-- 	用户获奖历史 -->
+	<select id="findGameWinnerByUserId" resultType="com.kaipai.ck.model.games.GameListModel">
+		select
+			ph.gm_no as gameNo,
+			ph.join_no as winNo,
+			ph.nick_name as winner,
+			ph.address_id as addressId,
+			ph.prize_state as prizeState,
+			g.gm_pic_url as prizeImg,
+			g.prize_name as prizeName,
+			g.prize_status as state,
+			g.lst_open as openTm,
+			g.lm_join_num as total,
+			g.create_tm as createTm,
+			(select count(0) from gm_join_his where gm_no = gameNo and user_id = ph.user_id) as joinCount
+		from
+			gm_gt_prize_his ph
+		join
+			gm_activities g on g.gm_no = ph.gm_no and g.state = 'ON'
+		where
+			ph.user_id = #{userId} and ph.id_del = '0'
+		<if test="lastTm != null">
+			and ph.create_tm <![CDATA[<]]> #{lastTm}
+		</if>
+		order by
+			ph.create_tm desc
+		limit
+			#{rows}
+	</select>
+	
+	<insert id="createGameOrder" parameterType="com.kaipai.ck.model.games.GameOrderModel">
+		insert into
+			kp_order_game(`order_no`,`game_no`,`num`,`price`,`user_id`,`game_type`)
+			values(#{orderNo},#{gameNo},#{num},#{price},#{userId},#{gameType})
+	</insert>
+	
+	<select id="findGameOrderDetail" resultType="com.kaipai.ck.model.games.GameOrderModel">
+		select
+			t.game_no as gameNo,
+			t.order_no as orderNo,
+			t.price as price,
+			t.num as num,
+			t.price*t.num as amount,
+			t.user_id as userId
+		from
+			kp_order_game t
+		where
+			t.order_no = #{orderNo}
+		limit 1
+	</select>
+	
+<!-- 	中奖人设置收货地址 -->
+	<update id="updatePrizeAddress">
+		update
+			gm_gt_prize_his
+		set
+			address_id = #{addressId},prize_state = '2'
+		where
+			user_id = #{userId} and gm_no = #{gameNo}
+	</update>
+<!-- 	奖品快递状态 -->
+	<update id="updatePrizeState">
+		update
+			gm_gt_prize_his
+		set
+			prize_state = #{prizeState}
+		where
+			user_id = #{userId} and gm_no = #{gameNo}
+		
+	</update>
+<!-- 游戏计算规则 -->
+	<insert id="createGameInstruction" parameterType="com.kaipai.ck.model.games.GamePrizeInstruction">
+		insert into 
+			gm_prize_cal_param(`gm_no`,`pram_a`,`pram_b`,`join_num`,`cal_res`)
+		values(#{gameNo},#{paramA},#{paramB},#{joinNum},#{res})
+	</insert>
+<!-- 游戏计算详情 -->
+	<select id="findGameInstruction" resultType="com.kaipai.ck.model.games.GamePrizeInstruction">
+		select
+			c.gm_no as gameNo,
+			c.pram_a as paramA,
+			c.pram_b as paramB,
+			c.join_num as joinNum,
+			c.cal_res as res,
+			g.lottery_issue as issueNo,
+			p.gdsfl_code as lotteryCode,
+			c.create_tm as createTm
+		from
+			gm_prize_cal_param c
+		left join
+			gm_activities g on c.gm_no = g.gm_no
+		left join
+			gm_gt_prize_his p on c.gm_no = p.gm_no
+		where
+			c.gm_no = #{gameNo} and c.id_del = '0'
+		limit 1
+	</select>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+ 	<select id="findGamePage" parameterType="map" resultType="com.kaipai.ck.model.games.GameActivitiesModel">
+		select
+			gm_title as gmTitle,
+			g.gm_no as gmNo,
+			g.prize_name as prizeName,
+			g.lm_join_num as lmJoinNum,
+			g.create_tm as createTm,
+			g.gm_type as gmType,
+			g.prize_status as prizeStatus,
+			gp.prize_pic1 as prizeImg,
+			gp.prize_name as prizeName,
+			g.lst_open as lstOpen,
+			g.lm_join_num AS lmJoinNum,
+			g.`lm_get_num` AS lmGetNum,
+			g.create_tm as createTm,
+			g.state as state
+		from
+			gm_activities g
+		left join
+			gm_prizes as gp on g.prize_code = gp.prize_code
+		where 1=1
+		<if test="gmTitle != null and gmTitle !=''">
+			and g.gm_title like CONCAT('%',#{gmTitle},'%')
+		</if>
+		<if test="startCreateTm != null and startCreateTm !=''">
+			and g.create_tm <![CDATA[>=]]> #{startCreateTm}
+		</if>
+		<if test="endCreateTm != null and endCreateTm !=''">
+			and g.create_tm <![CDATA[<=]]> #{endCreateTm}
+		</if>
+		order by g.state DESC, g.create_tm desc
+		 limit #{pageIndex},#{pageSize}
+	</select>
+	
+	<select id="findGames" parameterType="String" resultType="com.kaipai.ck.model.games.GameActivitiesModel">
+		SELECT
+			gm_title AS gmTitle,
+			g.gm_no AS gmNo,
+			g.prize_name AS prizeName,
+			g.lm_join_num AS lmJoinNum,
+			g.gm_type AS gmType,
+			g.prize_status AS prizeStatus,
+			g.lst_open AS lstOpen,
+			g.lm_join_num AS lmJoinNum,
+			g.`lm_get_num` AS lmGetNum,
+			g.create_tm AS createTm,
+			g.state AS state
+		FROM
+			gm_activities g
+		where 1=1 and g.prize_code = #{prizeCode}
+	</select>
+	
+	<select id="findGameCount" parameterType="map" resultType="int">
+		select
+			count(1)
+		from
+			gm_activities g
+		left join
+			gm_prizes as gp on g.prize_code = gp.prize_code
+		where 1=1
+		<if test="gmTitle != null and gmTitle !=''">
+			and g.gm_title like CONCAT('%',#{gmTitle},'%')
+		</if>
+		<if test="startCreateTm != null and startCreateTm !=''">
+			and g.create_tm <![CDATA[>=]]> #{startCreateTm}
+		</if>
+		<if test="endCreateTm != null and endCreateTm !=''">
+			and g.create_tm <![CDATA[<=]]> #{endCreateTm}
+		</if>
+	</select>
+	
+	<!-- 获取所有游戏奖品列表 -->
+	<select id="findGamePrizesPage" parameterType="map" resultType="com.kaipai.ck.model.games.GamePrizesModel">
+		select 
+			prize_code as prizeCode,
+			prize_name as prizeName,
+			prize_amt as prizeAmt,
+			prize_dtl as prizeDtl,
+			prize_pic1 as prizePic1,
+			prize_pic2 as prizePic2,
+			prize_pic3 as prizePic3,
+			create_tm as createTm,
+			state
+		from gm_prizes  where 1=1
+		<if test="prizeName != null and prizeName !=''">
+			and prize_name like CONCAT('%',#{prizeName},'%')
+		</if>
+		<if test="startCreateTm != null and startCreateTm !=''">
+			and create_tm <![CDATA[>=]]> #{startCreateTm}
+		</if>
+		<if test="endCreateTm != null and endCreateTm !=''">
+			and create_tm <![CDATA[<=]]> #{endCreateTm}
+		</if>
+		order by state DESC,create_tm desc
+			 limit #{pageIndex},#{pageSize}
+	</select>
+	
+	<!-- 获取所有游戏奖品列表 -->
+	<select id="findGamePrizesList" parameterType="map" resultType="com.kaipai.ck.model.games.GamePrizesModel">
+		select 
+			prize_code as prizeCode,
+			prize_name as prizeName,
+			prize_amt as prizeAmt,
+			prize_dtl as prizeDtl,
+			prize_pic1 as prizePic1,
+			prize_pic2 as prizePic2,
+			prize_pic3 as prizePic3,
+			create_tm as createTm,
+			state
+		from gm_prizes  where 1=1 and state = 'ON'
+		<if test="prizeName != null and prizeName !=''">
+			and prize_name like CONCAT('%',#{prizeName},'%')
+		</if>
+		order by state DESC,create_tm desc
+	</select>
+	
+	<!-- 根据CODE获取游戏奖品 -->
+	<select id="getGamePrizes" parameterType="java.lang.String" resultType="com.kaipai.ck.model.games.GamePrizesModel">
+		select 
+			prize_code as prizeCode,
+			prize_name as prizeName,
+			prize_amt as prizeAmt,
+			prize_dtl as prizeDtl,
+			prize_pic1 as prizePic1,
+			prize_pic2 as prizePic2,
+			prize_pic3 as prizePic3,
+			create_tm as createTm,
+			state
+		from gm_prizes  where prize_code = #{prizeCode}
+	</select>
+	
+	<!-- 根据CODE获取游戏活动 -->
+	<select id="getGameActivities" parameterType="java.lang.String" resultType="com.kaipai.ck.model.games.GameActivitiesModel">
+		select 
+			gm_no AS gmNo,
+			gm_pic_url AS gmPicUrl, 
+			gm_title AS gmTitle,
+			gm_type AS gmType,
+			prize_code AS prizeCode,
+			prize_name AS prizeName,
+			lm_join_num AS lmJoinNum,
+			lm_get_num AS lmGetNum,
+			join_fee AS joinFee,
+			bonus_amt_ttl AS bonusAmtTtl,
+			gm_period_mills AS gmPeriodMills,
+			lst_open AS lstOpen,
+			prize_status AS prizeStatus,
+			state,
+			lottery_issue AS lotteryIssue
+		from gm_activities  where gm_no = #{gmNo}
+	</select>
+
+	<!-- 获取所有游戏奖品总数 -->
+	<select id="findGamePrizesCount" parameterType="map" resultType="int">
+		select 
+			count(1)
+		from gm_prizes  where 1=1
+		<if test="prizeName != null and prizeName !=''">
+			and prize_name like CONCAT('%',#{prizeName},'%')
+		</if>
+		<if test="startCreateTm != null and startCreateTm !=''">
+			and create_tm <![CDATA[>=]]> #{startCreateTm}
+		</if>
+		<if test="endCreateTm != null and endCreateTm !=''">
+			and create_tm <![CDATA[<=]]> #{endCreateTm}
+		</if>
+	</select>
+	 
+	 <!-- 保存游戏奖品 -->
+	<insert id="insertGamePrizes" parameterType="com.kaipai.ck.model.games.GamePrizesModel">
+		insert into gm_prizes(prize_code,prize_name,prize_amt,prize_dtl,prize_pic1,prize_pic2,prize_pic3,state)
+		values(#{prizeCode},#{prizeName},#{prizeAmt},#{prizeDtl},#{prizePic1},#{prizePic2},#{prizePic3},#{state})
+	</insert>
+	
+	 <!-- 保存游戏活动 -->
+	<insert id="insertGameActivities" parameterType="com.kaipai.ck.model.games.GameActivitiesModel">
+		insert into gm_activities(gm_pic_url,gm_title,gm_type,prize_code,prize_name,lm_join_num,lm_get_num,join_fee,bonus_amt_ttl,gm_period_mills,lst_open,prize_status,state,lottery_issue)
+		values(#{gmPicUrl},#{gmTitle},#{gmType},#{prizeCode},#{prizeName},#{lmJoinNum},#{lmGetNum}
+			,#{joinFee},#{bonusAmtTtl},#{gmPeriodMills},#{lstOpen},#{prizeStatus},#{state},#{lotteryIssue})
+	</insert>
+	
+	<!-- 修改游戏奖品 -->
+	<update id="updateGamePrizes" parameterType="com.kaipai.ck.model.games.GamePrizesModel">
+		update gm_prizes
+		<set>
+			<if test="prizeName != null and prizeName !=''">
+				prize_name = #{prizeName},
+			</if>
+			<if test="prizeAmt != null and prizeAmt !=''">
+				prize_amt = #{prizeAmt},
+			</if>
+			<if test="prizeDtl != null and prizeDtl !=''">
+				prize_dtl = #{prizeDtl},
+			</if>
+			<if test="prizePic1 != null and prizePic1 !=''">
+				prize_pic1 = #{prizePic1},
+			</if>
+			<if test="prizePic2 != null and prizePic2 !=''">
+				prize_pic2 = #{prizePic2},
+			</if>
+			<if test="prizePic3 != null and prizePic3 !=''">
+				prize_pic3 = #{prizePic3},
+			</if>
+			<if test="state != null and state !=''">
+				state = #{state},
+			</if>
+		</set>
+		where prize_code= #{prizeCode}
+	</update>
+	
+	<!-- 修改游戏活动 -->
+	<update id="updateGameActivities" parameterType="com.kaipai.ck.model.games.GameActivitiesModel">
+		update gm_activities
+		<set>
+			<if test="gmPicUrl != null and gmPicUrl !=''">
+				gm_pic_url = #{gmPicUrl},
+			</if>
+			<if test="gmTitle != null and gmTitle !=''">
+				gm_title = #{gmTitle},
+			</if>
+			<if test="gmType != null and gmType !=''">
+				gm_type = #{gmType},
+			</if>
+			<if test="prizeCode != null and prizeCode !=''">
+				prize_code = #{prizeCode},
+			</if>
+			<if test="prizeName != null and prizeName !=''">
+				prize_name = #{prizeName},
+			</if>
+			<if test="lmJoinNum != null and lmJoinNum !=''">
+				lm_join_num = #{lmJoinNum},
+			</if>
+			<if test="lmGetNum != null and lmGetNum !=''">
+				lm_get_num = #{lmGetNum},
+			</if>
+			<if test="joinFee != null and joinFee !=''">
+				join_fee = #{joinFee},
+			</if>
+			<if test="bonusAmtTtl != null and bonusAmtTtl !=''">
+				bonus_amt_ttl = #{bonusAmtTtl},
+			</if>
+			<if test="gmPeriodMills != null and gmPeriodMills !=''">
+				gm_period_mills = #{gmPeriodMills},
+			</if>
+			<if test="lstOpen != null and lstOpen !=''">
+				lst_open = #{lstOpen},
+			</if>
+			<if test="prizeStatus != null and prizeStatus !=''">
+				prize_status = #{prizeStatus},
+			</if>
+			<if test="state != null and state !=''">
+				state = #{state},
+			</if>
+			<if test="lotteryIssue != null and lotteryIssue !=''">
+				lottery_issue = #{lotteryIssue},
+			</if>
+		</set>
+		where gm_no= #{gmNo}
+	</update>
+	<!-- 获奖者历史 -->
+	<select id="getGmGtPrizeHisPage" resultType="com.kaipai.ck.model.games.GameWinnerHisModel" parameterType="map">
+		SELECT gm_no AS gameNo,a.nick_name AS winnerName,prize_state AS prizeState,b.`prize_name` AS prizeName,
+		CONCAT(IFNULL(c.`province_name`,''),IFNULL(c.`city_name`,''),IFNULL(c.`area_name`,''),IFNULL(c.`address`,''))
+		 AS address,a.user_id AS userId,a.`create_tm` AS createTm,
+		 c.`contact_name` AS winnerRealName,c.`mobile`
+		FROM gm_gt_prize_his a LEFT JOIN gm_prizes b 
+		ON a.`prize_code` = b.`prize_code`
+		LEFT JOIN kp_user_addresses c
+		ON a.`address_id` = c.`address_id`
+		where 1=1
+		<if test="gmNo !=null and gmNo !=''">
+			and a.gm_no = #{gmNo}
+		</if>
+		<if test="nickName !=null and nickName !=''">
+			and a.nick_name = #{nickName}
+		</if>
+		<if test="prizeState !=null and prizeState !=''">
+			and a.prize_state = #{prizeState}
+		</if>
+		<if test="prizeName !=null and prizeName !=''">
+			and b.prize_name like CONCAT('%',#{prizeName},'%')
+		</if>
+		
+		ORDER BY a.`prize_state` ASC, a.create_tm ASC
+		 limit #{pageIndex},#{pageSize}
+	</select>
+	<select id="getGmGtPrizeHisCount" resultType="int" parameterType="map">
+		SELECT count(1)
+		FROM gm_gt_prize_his a LEFT JOIN gm_prizes b 
+		ON a.`prize_code` = b.`prize_code`
+		LEFT JOIN kp_user_addresses c
+		ON a.`address_id` = c.`address_id` 
+		where 1=1
+		<if test="gmNo !=null and gmNo !=''">
+			and a.gm_no = #{gmNo}
+		</if>
+		<if test="nickName !=null and nickName !=''">
+			and a.nick_name = #{nickName}
+		</if>
+		<if test="prizeState !=null and prizeState !=''">
+			and a.prize_state = #{prizeState}
+		</if>
+		<if test="prizeName !=null and prizeName !=''">
+			and b.prize_name like CONCAT('%',#{prizeName},'%')
+		</if>
+	</select>
+	
+
+</mapper>

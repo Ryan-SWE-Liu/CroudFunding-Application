@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kaipai.ck.mapper.movie.MovieDiscussMapper">
+
+
+	<!-- 电影项目讨论列表 -->
+	<select id="findMovieDiscussList" resultType="com.kaipai.ck.model.movie.MovieDiscussModel" parameterType="hashmap">
+		select
+			t.mov_no as movNo,
+        	t.disc_id as discId,
+        	t.source as source,
+        	t.content as content,
+        	t.rpy_disc_id as rpyDiscId,
+        	t.relpy_content as relpyContent,
+        	(select count(0) from kp_movie_discuss_praise kdp where kdp.disc_id = t.disc_id) praisesCounts,
+        	t.disc_tm as discTm,
+        	t.user_id as userId,
+        	t.user_name as userName,
+        	t.nick_name as nickName,
+        	(select count(0) from kp_movie_discuss_praise kmdp where 
+        	kmdp.disc_id = t.disc_id and kmdp.user_id = #{userId}) isPraise,
+        	u.icon_url iconUrl
+		 from kp_movie_discuss  t
+		 left join kp_users u on t.user_id = u.user_id
+		where t.is_del = 0 
+		<if test="movNo != null and movNo != ''">
+			and t.mov_no = #{movNo}
+		</if>
+		<if test="rpyDiscId == null or rpyDiscId == ''">
+			and t.rpy_disc_id is null
+		</if>
+		<if test="rpyDiscId != null and rpyDiscId != ''">
+			and t.rpy_disc_id = #{rpyDiscId}
+		</if>
+		<if test="discTm != null and discTm != ''">
+			<![CDATA[ and t.disc_tm < #{discTm} ]]>
+		</if>
+		order by t.disc_tm desc
+		limit 
+		<if test="index != null and index != ''">
+		#{index},
+		</if>
+		#{size}
+	</select>
+	
+	<!-- 电影项目讨论详情 -->
+	<select id="findMovieDiscuss" resultType="com.kaipai.ck.model.movie.MovieDiscussModel" parameterType="long">
+		select
+			t.mov_no as movNo,
+        	t.disc_id as discId,
+        	t.source as source,
+        	t.content as content,
+        	t.rpy_disc_id as rpyDiscId,
+        	t.relpy_content as relpyContent,
+        	t.disc_tm as discTm,
+        	t.user_id as userId,
+        	(select count(0) from kp_movie_discuss_praise kdp where kdp.disc_id = t.disc_id) praisesCounts,
+        	(select count(0) from kp_movie_discuss_praise kmdp where 
+        	kmp.disc_id = t.disc_id and kmdp.user_id = #{userId}) isPraise,
+        	t.user_name as userName,
+        	t.nick_name as nickName
+		 from kp_movie_discuss t
+		where t.disc_id = #{discId} 
+	</select>
+	
+	
+	<insert id="insertMovieDiscuss" useGeneratedKeys="true" keyProperty="discId"  parameterType="com.kaipai.ck.model.movie.MovieDiscussModel">
+		INSERT INTO kp_movie_discuss (
+        	mov_no ,
+        	source ,
+        	content ,
+        	rpy_disc_id ,
+        	relpy_content ,
+        	disc_tm ,
+        	user_id ,
+        	user_name ,
+        	nick_name ,
+        	is_del 
+        ) VALUES (
+        	#{movNo,jdbcType=VARCHAR} ,
+        	#{source,jdbcType=VARCHAR} ,
+        	#{content,jdbcType=VARCHAR} ,
+        	#{rpyDiscId,jdbcType=BIGINT} ,
+        	#{relpyContent,jdbcType=VARCHAR} ,
+        	SYSDATE() ,
+        	#{userId,jdbcType=VARCHAR} ,
+        	#{userName,jdbcType=VARCHAR} ,
+        	#{nickName,jdbcType=VARCHAR} ,
+        	0
+        )
+	</insert>
+	
+	<update id="updateMovieDiscuss" parameterType="com.kaipai.ck.model.movie.MovieDiscussModel">
+		UPDATE kp_movie_discuss SET
+	        mov_no = #{movNo,jdbcType=VARCHAR} ,
+	        source = #{source,jdbcType=VARCHAR} ,
+	        content = #{content,jdbcType=VARCHAR} ,
+	        rpy_disc_id = #{rpyDiscId,jdbcType=BIGINT} ,
+	        relpy_content = #{relpyContent,jdbcType=VARCHAR} ,
+	        user_id = #{userId,jdbcType=VARCHAR} ,
+	        user_name = #{userName,jdbcType=VARCHAR} ,
+	        nick_name = #{nickName,jdbcType=VARCHAR} 
+        WHERE 
+	        disc_id = #{discId} 
+	</update>
+	
+	
+	
+    <delete id="deleteMovieDiscuss" parameterType="java.lang.Long">
+    <![CDATA[
+       DELETE FROM kp_movie_discuss WHERE
+        disc_id = #{discId} 
+    ]]>
+    </delete>
+    
+    
+    <!-- ========================项目讨论点赞列表====================== -->
+    <!-- 添加项目讨论点赞 -->
+	<insert id="insertMovieDiscussPpraise"  parameterType="com.kaipai.ck.model.movie.MovieDiscussPraiseModel">
+		INSERT INTO kp_movie_discuss_praise (
+        	disc_id ,
+        	source ,
+        	user_id ,
+        	create_tm ,
+        	is_del 
+        ) VALUES (
+        	#{discId,jdbcType=BIGINT} ,
+        	#{source,jdbcType=VARCHAR} ,
+        	#{userId,jdbcType=BIGINT} ,
+        	SYSDATE() ,
+        	0
+        )
+	</insert>
+</mapper>

@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kaipai.ck.mapper.crowdfunding.CollBespeakMapper">
+	
+	  <!-- 众筹预约列 -->
+	<sql id="baseColumn">
+	  	a.besp_id as bespId,a.coll_no as collNo,a.coll_ben_id as collBenId,a.user_id as userId,a.create_tm as createTm
+	</sql>
+	
+	<!-- 添加用户众筹预约信息 -->
+	<insert id="createCollBespeak" parameterType="com.kaipai.ck.model.crowdfunding.CollBespeakModel" >
+		INSERT INTO kp_coll_bespeak (
+			coll_no,
+			coll_ben_id,
+			user_id,
+			create_tm
+			) values (
+			#{collNo},
+			#{collBenId},
+			#{userId},
+			SYSDATE()
+			)
+	</insert>
+    
+	<select id="getCollBespeaks" parameterType="map" resultType="com.kaipai.ck.model.crowdfunding.CollBespeakModel">
+		
+		SELECT <include refid="baseColumn" />, b.`coll_name` as collName,IFNULL(d.`id_name`,c.`nick_name`) as idName ,
+		e.`benfit_size` as benfitSize,e.`ev_amt` as evAmt,c.`mobile`
+		 FROM kp_coll_bespeak a 
+		LEFT JOIN kp_collections b ON a.`coll_no` = b.`coll_no`
+		LEFT JOIN kp_users c ON c.`user_id` = a.`user_id`
+		LEFT JOIN kp_user_info d ON a.`user_id` = d.`user_id`
+		LEFT JOIN kp_coll_benfit e ON a.`coll_ben_id` = e.`coll_ben_id`
+		 where 1=1
+		 <if test="collName != null and collName !=''">
+             AND b.coll_name like CONCAT('%',#{collName},'%')
+         </if>
+          <if test="idName != null and idName !=''">
+             AND d.id_name like CONCAT('%',#{idName},'%')
+         </if>
+          <if test="mobile != null and mobile !=''">
+             AND c.mobile like CONCAT('%',#{mobile},'%')
+         </if>
+          <if test="startCreateTm != null and startCreateTm !=''">
+             AND a.create_tm >= #{startCreateTm}
+         </if>
+         <if test="endCreateTm != null and endCreateTm !=''">
+             AND a.create_tm  <![CDATA[<=]]> #{endCreateTm}
+         </if>
+		 order by a.create_tm asc
+         limit #{pageIndex},#{pageSize}
+	</select>
+	
+	<select id="getCollBespeakCount" parameterType="map" resultType="int">
+		select count(1) from kp_coll_bespeak
+	</select>
+	
+</mapper>

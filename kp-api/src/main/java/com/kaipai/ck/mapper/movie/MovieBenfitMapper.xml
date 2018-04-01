@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kaipai.ck.mapper.movie.MovieBenfitMapper">
+	
+	<!-- 电影收益列表 -->
+	<select id="getMovieBenfits" resultType="com.kaipai.ck.model.movie.MovieBenfitModel" parameterType="map">
+		SELECT d.mov_no AS  movNo,d.mov_name AS movName,e.title AS videoName,b.`odr_amt`/100 AS ordAmt,
+		f.`nick_name` AS transferUserName,g.`nick_name` AS payUserName,
+		(va.tranfer_usr_amt)/100 AS benfitAmt ,b.order_tm AS orderTm
+		FROM kp_video_tranfer_amt_his va
+		LEFT JOIN kp_orders b ON va.order_no = b.order_no
+		LEFT JOIN kp_movie_videos c ON va.`video_id` = c.`video_id`
+		LEFT JOIN kp_movies d ON c.`mov_no` = d.`mov_no`
+		LEFT JOIN kp_videos e ON va.`video_id` = e.`video_id`
+		LEFT JOIN kp_users f ON va.`tranfer_usr_id` = f.`user_id`
+		LEFT JOIN kp_users g ON va.pay_usr_id = g.`user_id`
+				WHERE 1=1 AND d.mov_no IS NOT NULL
+		<if test="movName != null and movName !=''">
+			and d.`mov_name` like CONCAT('%',#{movName},'%')
+		</if>
+		<if test="orderStartTm !=null and orderStartTm !=''">
+			AND b.order_tm  >= #{orderStartTm}
+		</if>
+		<if test="orderEndTm !=null and orderEndTm !=''">
+			AND b.order_tm  <![CDATA[<=]]> #{orderEndTm}
+		</if>
+		<if test="condition !=null and condition !=''">
+			and (e.`title` like CONCAT('%',#{condition},'%') 
+				or d.mov_no  like CONCAT('%',#{condition},'%') 
+				or f.`nick_name` like CONCAT('%',#{condition},'%') 
+				)
+		</if>
+		order by b.order_tm desc
+		limit #{pageIndex},#{pageSize}
+	</select>
+	
+	<!-- 电影收益总数 -->
+	<select id="getMovieBenfitCount" resultType="int" parameterType="map">
+		SELECT count(1)
+		FROM kp_video_tranfer_amt_his va
+		LEFT JOIN kp_orders b ON va.order_no = b.order_no
+		LEFT JOIN kp_movie_videos c ON va.`video_id` = c.`video_id`
+		LEFT JOIN kp_movies d ON c.`mov_no` = d.`mov_no`
+		LEFT JOIN kp_videos e ON va.`video_id` = e.`video_id`
+		LEFT JOIN kp_users f ON va.`tranfer_usr_id` = f.`user_id`
+		LEFT JOIN kp_users g ON va.pay_usr_id = g.`user_id`
+				WHERE 1=1 AND d.mov_no IS NOT NULL
+		<if test="movName != null and movName !=''">
+			and d.`mov_name` like CONCAT('%',#{movName},'%')
+		</if>
+		<if test="orderStartTm !=null and orderStartTm !=''">
+			AND b.order_tm  >= #{orderStartTm}
+		</if>
+		<if test="orderEndTm !=null and orderEndTm !=''">
+			AND b.order_tm  <![CDATA[<=]]> #{orderEndTm}
+		</if>
+		<if test="condition !=null and condition !=''">
+			and (e.`title` like CONCAT('%',#{condition},'%') 
+				or d.mov_no  like CONCAT('%',#{condition},'%') 
+				or f.`user_name` like CONCAT('%',#{condition},'%') 
+				)
+		</if>
+	</select>
+	
+	<!-- 电影收益总金额 -->
+	<select id="getMovieBenfitTotalAmt" resultType="Double" parameterType="map">
+		SELECT SUM(va.tranfer_usr_amt)/100 AS totalBenfitAmt 
+		FROM kp_video_tranfer_amt_his va
+		LEFT JOIN kp_orders b ON va.order_no = b.order_no
+		LEFT JOIN kp_movie_videos c ON va.`video_id` = c.`video_id`
+		LEFT JOIN kp_movies d ON c.`mov_no` = d.`mov_no`
+		LEFT JOIN kp_videos e ON va.`video_id` = e.`video_id`
+		LEFT JOIN kp_users f ON va.`tranfer_usr_id` = f.`user_id`
+		LEFT JOIN kp_users g ON va.pay_usr_id = g.`user_id`
+				WHERE 1=1 AND d.mov_no IS NOT NULL
+		<if test="movName != null and movName !=''">
+			and d.`mov_name` like CONCAT('%',#{movName},'%')
+		</if>
+		<if test="orderStartTm !=null and orderStartTm !=''">
+			AND b.order_tm  >= #{orderStartTm}
+		</if>
+		<if test="orderEndTm !=null and orderEndTm !=''">
+			AND b.order_tm  <![CDATA[<=]]> #{orderEndTm}
+		</if>
+		<if test="condition !=null and condition !=''">
+			and (e.`title` like CONCAT('%',#{condition},'%') 
+				or d.mov_no  like CONCAT('%',#{condition},'%') 
+				or f.`nick_name` like CONCAT('%',#{condition},'%') 
+				)
+		</if>
+	</select>
+	<!-- 转发收益排名 -->
+	<select id="getTranProfitRank" parameterType="String" resultType="com.kaipai.ck.model.movie.MovieTranProfitModel">
+		select
+			*
+		from 
+			(select 
+				ifnull(sum(t.tranfer_usr_amt),0) as profit,
+				t.tranfer_usr_id as userId,
+				max(t.create_tm) as opDate
+			from
+				kp_video_tranfer_amt_his t
+			where
+				t.video_id in
+						(select kmv.video_id from kp_movie_videos kmv where kmv.mov_no =#{movNo})
+			group by 
+				t.tranfer_usr_id
+			order by 
+				profit desc)t
+		where 
+			t.profit > 0
+		limit 
+			10
+	</select>
+	
+	<select id="getDividendHis" parameterType="String" resultType="com.kaipai.ck.model.movie.MovieDividendModel">
+		select 
+			ifnull(sum(t.bonus_amt_ttl),0) as dividendAmt,
+			max(t.create_tm) as dividendTm,
+			stock_code as stockCode
+		from 
+			kp_user_stk_bonus_his t
+		where 
+			t.stock_code = (select stock_code from kp_trade_info where mov_no=#{movNo}) and t.state = '1'
+		group by
+			t.pi_no
+		order by dividendTm desc
+	
+	</select>
+</mapper>

@@ -1,0 +1,349 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kaipai.ck.mapper.comment.CommentMapper">
+
+	
+	<!-- 查询活动投票评论列表 -->
+	<select id="findVoteSignComments" resultType="com.kaipai.ck.model.comment.CommentModel" parameterType="hashmap">
+		select 
+			t.disc_id as id,
+			t.act_no as commentTypeId,
+			t.user_id as userId,
+			ku.user_name as userName,
+			t.content as commentContent,
+			t.relpy_content as relpyContent,
+			ku.nick_name as nickName,
+			t.source as source,
+			DATE_FORMAT(t.disc_tm,'%Y-%m-%d %H:%i:%s') as commentTime,
+			ku.icon_url as iconUrl
+		from kp_act_sign_discuss t
+		left join kp_users ku on t.user_id=ku.user_id
+		where t.act_no =#{actNo}
+			and t.recr_sign_id =#{voteSignId}
+			<if test = "discId != null and discId != ''">
+			<![CDATA[
+				and t.disc_id < #{discId}
+			]]>
+			</if>
+		 	order by t.disc_id desc
+		 	limit 
+		 	<if test="pageIndex != null and pageIndex != '' ">
+		 		#{pageIndex},
+		 	</if>
+		 	#{pageSize}
+	</select>
+	<!-- 查询众筹列表 -->
+  
+	<!-- 查询活动评论列表 -->
+	<select id="findComments" resultType="com.kaipai.ck.model.comment.CommentModel" parameterType="hashmap">
+		select 
+			t.disc_id as id,
+			t.act_no as commentTypeId,
+			t.user_id as userId,
+			ku.user_name as userName,
+			t.content as commentContent,
+			t.relpy_content as relpyContent,
+			ku.nick_name as nickName,
+			t.source as source,
+			ROUND((UNIX_TIMESTAMP(SYSDATE())-UNIX_TIMESTAMP(t.disc_tm))/3600) as commentTime,
+			ku.icon_url as iconUrl
+		from kp_act_discuss t
+		left join kp_users ku on t.user_id=ku.user_id
+		where 1=1 
+			and t.act_no =#{commentTypeId}
+		 	order by t.disc_tm desc
+		 	limit #{pageIndex},#{pageSize}
+	</select>
+	<!-- 查询众筹评论列表 -->
+	<select id="findCommentsCo" resultType="com.kaipai.ck.model.comment.CommentModel" parameterType="hashmap">
+		select 
+			t.disc_id as id,
+			t.coll_no as commentTypeId,
+			t.user_id as userId,
+			ku.user_name as userName,
+			t.content as commentContent,
+			t.relpy_content as relpyContent,
+			ku.nick_name as nickName,
+			t.source as source,
+			ROUND((UNIX_TIMESTAMP(SYSDATE())-UNIX_TIMESTAMP(t.disc_tm))/3600) as commentTime,
+			ku.icon_url as iconUrl
+		from kp_coll_discuss t
+		left join kp_users ku on t.user_id=ku.user_id
+		where 1=1 
+			and t.coll_no =#{commentTypeId}
+		 	order by t.disc_tm desc
+		 	limit #{pageIndex},#{pageSize}
+	</select>
+	<select id="findCommentsMo" resultType="com.kaipai.ck.model.comment.CommentModel" parameterType="hashmap">
+		select 
+			t.disc_id as id,
+			t.video_id as commentTypeId,
+			t.user_id as userId,
+			ku.user_name as userName,
+			t.content as commentContent,
+			t.relpy_content as relpyContent,
+			ku.nick_name as nickName,
+			t.source as source,
+			ROUND((UNIX_TIMESTAMP(SYSDATE())-UNIX_TIMESTAMP(t.disc_tm))/3600) as commentTime,
+			ku.icon_url as iconUrl
+		from kp_video_discuss t
+		left join kp_users ku on t.user_id=ku.user_id
+		where t.is_del = 0
+			and t.video_id =#{commentTypeId}
+		 	order by t.disc_tm desc
+		 	limit #{pageIndex},#{pageSize}
+	</select>
+	<!--查询记录的总数，用于分页显示  -->
+	<select id="getTotalCountAct" resultType="long" parameterType="hashmap">
+		select count(0) 
+		from kp_act_discuss t
+		where 1=1 
+			and act_no =#{commentTypeId}
+	</select>
+	<select id="getTotalCountMo" resultType="long" parameterType="hashmap">
+		select count(0) 
+		from kp_video_discuss t
+		where t.is_del = 0 
+			and video_id =#{commentTypeId}
+	</select>
+	<select id="getTotalCountCo" resultType="long" parameterType="hashmap">
+		select count(0) 
+		from kp_coll_discuss t
+		where 1=1 
+			and coll_no =#{commentTypeId}
+	</select>
+	
+	<!--查询演员投票记录的总数，用于分页显示  -->
+	<select id="getVoteSignTotalCount" resultType="long" parameterType="hashmap">
+		select count(0) 
+		from kp_act_sign_discuss t
+		where act_no =#{actNo}
+			and recr_sign_id =#{voteSignId}
+	</select>
+	<!-- 添加演员投票评论 -->
+	<insert  id="createVoteSignComments" parameterType="com.kaipai.ck.model.comment.CommentModel"
+	useGeneratedKeys="true" keyProperty="id">
+		insert into 
+			kp_act_sign_discuss(
+				recr_sign_id,
+  				act_no,
+  				source,
+  				content,
+  				relpy_content,
+  				disc_tm,
+  				user_id,
+  				user_name,
+  				nick_name,
+  				is_del
+			)values(
+				#{voteSignId,jdbcType=VARCHAR},
+				#{commentTypeId,jdbcType=VARCHAR},
+				#{source,jdbcType=VARCHAR},
+				#{commentContent,jdbcType=VARCHAR},
+				#{relpyContent,jdbcType=VARCHAR},
+				DATE_FORMAT(SYSDATE(),'%Y-%m-%d %H:%i:%s'),
+				#{userId,jdbcType=VARCHAR},
+				#{userName,jdbcType=VARCHAR},
+				#{nickName,jdbcType=VARCHAR},
+				#{isDel,jdbcType=VARCHAR}
+			)
+	</insert>
+	
+	<insert  id="createComments" parameterType="com.kaipai.ck.model.comment.CommentModel"
+	useGeneratedKeys="true" keyProperty="id">
+		insert into 
+			kp_act_discuss(
+  				act_no,
+  				source,
+  				content,
+  				relpy_content,
+  				disc_tm,
+  				user_id,
+  				user_name,
+  				nick_name,
+  				is_del
+			)values(
+				#{commentTypeId,jdbcType=VARCHAR},
+				#{source,jdbcType=VARCHAR},
+				#{commentContent,jdbcType=VARCHAR},
+				#{relpyContent,jdbcType=VARCHAR},
+				DATE_FORMAT(SYSDATE(),'%Y-%m-%d %H:%i:%s'),
+				#{userId,jdbcType=VARCHAR},
+				#{userName,jdbcType=VARCHAR},
+				#{nickName,jdbcType=VARCHAR},
+				#{isDel,jdbcType=VARCHAR}
+			)
+	</insert>
+	<insert  id="createCommentsCo" parameterType="com.kaipai.ck.model.comment.CommentModel"
+	useGeneratedKeys="true" keyProperty="id">
+		insert into 
+			kp_coll_discuss(
+  				coll_no,
+  				source,
+  				content,
+  				relpy_content,
+  				disc_tm,
+  				user_id,
+  				user_name,
+  				nick_name,
+  				is_del
+			)values(
+				#{commentTypeId,jdbcType=VARCHAR},
+				#{source,jdbcType=VARCHAR},
+				#{commentContent,jdbcType=VARCHAR},
+				#{relpyContent,jdbcType=VARCHAR},
+				DATE_FORMAT(SYSDATE(),'%Y-%m-%d %H:%i:%s'),
+				#{userId,jdbcType=VARCHAR},
+				#{userName,jdbcType=VARCHAR},
+				#{nickName,jdbcType=VARCHAR},
+				#{isDel,jdbcType=VARCHAR}
+			)
+	</insert>
+	<insert  id="createCommentsMo" parameterType="com.kaipai.ck.model.comment.CommentModel"
+	useGeneratedKeys="true" keyProperty="id">
+		insert into 
+			kp_video_discuss(
+  				video_id,
+  				source,
+  				content,
+  				relpy_content,
+  				disc_tm,
+  				user_id,
+  				user_name,
+  				nick_name,
+  				is_del
+			)values(
+				#{commentTypeId,jdbcType=VARCHAR},
+				#{source,jdbcType=VARCHAR},
+				#{commentContent,jdbcType=VARCHAR},
+				#{relpyContent,jdbcType=VARCHAR},
+				DATE_FORMAT(SYSDATE(),'%Y-%m-%d %H:%i:%s'),
+				#{userId,jdbcType=VARCHAR},
+				#{userName,jdbcType=VARCHAR},
+				#{nickName,jdbcType=VARCHAR},
+				#{isDel,jdbcType=VARCHAR}
+			)
+	</insert>
+	
+	
+	<!-- app查询招募/竞选评论 -->
+	<select id="queryAppCommentAct" parameterType="hashmap" resultType="com.kaipai.ck.model.comment.AppCommentModel">
+		select kad.disc_id as commentId,kad.user_id as userId,kad.content,kad.disc_tm as commentTm,kad.act_no as objId,
+		ku.icon_url as iconUrl,ku.nick_name as nickName
+		from kp_act_discuss kad 
+		left join kp_users ku on kad.user_id = ku.user_id
+		where kad.is_del = '0' and kad.act_no = #{objId} 
+		<if test = "lastId != null">
+		<![CDATA[
+			and kad.disc_id < #{lastId}
+		]]>
+		</if>
+		order by kad.disc_tm desc
+		limit #{pageSize}
+	</select>
+	
+	<!-- app查询视频评论 -->
+	<select id="queryAppCommentVideo" parameterType="hashmap" resultType="com.kaipai.ck.model.comment.AppCommentModel">
+		select kad.disc_id as commentId,kad.user_id as userId,kad.content,kad.disc_tm as commentTm,kad.video_id as objId,
+		ku.icon_url as iconUrl,ku.nick_name as nickName
+		from kp_video_discuss kad 
+		left join kp_users ku on kad.user_id = ku.user_id
+		where kad.is_del = '0' and kad.video_id = #{objId} 
+		<if test = "lastId != null">
+		<![CDATA[
+			and kad.disc_id < #{lastId}
+		]]>
+		</if>
+		order by kad.disc_tm desc
+		limit #{pageSize}
+	</select>
+	
+	<!-- app查询众筹评论 -->
+	<select id="queryAppCommentColl" parameterType="hashmap" resultType="com.kaipai.ck.model.comment.AppCommentModel">
+		select kad.disc_id as commentId,kad.user_id as userId,kad.content,kad.disc_tm as commentTm,kad.coll_no as objId,
+		ku.icon_url as iconUrl,ku.nick_name as nickName
+		from kp_coll_discuss kad 
+		left join kp_users ku on kad.user_id = ku.user_id
+		where kad.is_del = '0' and kad.coll_no = #{objId} 
+		<if test = "lastId != null">
+		<![CDATA[
+			and kad.disc_id < #{lastId}
+		]]>
+		</if>
+		order by kad.disc_tm desc
+		limit #{pageSize}
+	</select>
+	
+	<!-- app查询活动评论回复 -->
+	<select id="queryCommentActRelpyByCommentId" parameterType="hashmap" resultType="com.kaipai.ck.model.comment.AppCommentRelpyModel">
+		select kcr.relpy_id as relpyId,kcr.comment_id as commentId,kcr.user_id as userId,kcr.user_nick_name as userNickName,
+		kcr.content,kcr.relpy_user_id as relpyUserId,kcr.relpy_nick_name as relpyNickName,kcr.relpy_tm as relpyTm
+		from kp_act_comment_relpy kcr where kcr.comment_id = #{commentId} and kcr.is_del = '0' order by kcr.relpy_tm
+		limit #{maxRelpy}
+	</select>
+	<!-- app查询视频评论回复 -->
+	<select id="queryCommentVideoRelpyByCommentId" parameterType="hashmap" resultType="com.kaipai.ck.model.comment.AppCommentRelpyModel">
+		select kcr.relpy_id as relpyId,kcr.comment_id as commentId,kcr.user_id as userId,kcr.user_nick_name as userNickName,
+		kcr.content,kcr.relpy_user_id as relpyUserId,kcr.relpy_nick_name as relpyNickName,kcr.relpy_tm as relpyTm
+		from kp_video_comment_relpy kcr where kcr.comment_id = #{commentId} and kcr.is_del = '0' order by kcr.relpy_tm
+		limit #{maxRelpy} 
+	</select>
+	<!-- app查询众筹评论回复 -->
+	<select id="queryCommentCollRelpyByCommentId" parameterType="hashmap" resultType="com.kaipai.ck.model.comment.AppCommentRelpyModel">
+		select kcr.relpy_id as relpyId,kcr.comment_id as commentId,kcr.user_id as userId,kcr.user_nick_name as userNickName,
+		kcr.content,kcr.relpy_user_id as relpyUserId,kcr.relpy_nick_name as relpyNickName,kcr.relpy_tm as relpyTm
+		from kp_coll_comment_relpy kcr where kcr.comment_id = #{commentId} and kcr.is_del = '0' order by kcr.relpy_tm
+		limit #{maxRelpy} 
+	</select>
+	<!-- 添加活动评论回复 -->
+	<insert id="createCommentActRelpy" parameterType="com.kaipai.ck.model.comment.AppCommentRelpyModel">
+		insert into kp_act_comment_relpy(comment_id,user_id,user_nick_name,content,relpy_user_id,relpy_nick_name) 
+		values(
+			#{commentId},
+			#{userId},
+			#{userNickName},
+			#{content},
+			#{relpyUserId},
+			#{relpyNickName})
+	</insert>
+	<!-- 添加众筹评论回复 -->
+	<insert id="createCommentCollRelpy" parameterType="com.kaipai.ck.model.comment.AppCommentRelpyModel">
+		insert into kp_coll_comment_relpy(comment_id,user_id,user_nick_name,content,relpy_user_id,relpy_nick_name) 
+		values(
+			#{commentId},
+			#{userId},
+			#{userNickName},
+			#{content},
+			#{relpyUserId},
+			#{relpyNickName})
+	</insert>
+	<!-- 添加视频评论回复 -->
+	<insert id="createCommentVideoRelpy" parameterType="com.kaipai.ck.model.comment.AppCommentRelpyModel">
+		insert into kp_video_comment_relpy(comment_id,user_id,user_nick_name,content,relpy_user_id,relpy_nick_name) 
+		values(
+			#{commentId},
+			#{userId},
+			#{userNickName},
+			#{content},
+			#{relpyUserId},
+			#{relpyNickName})
+	</insert>
+	
+	<select id="getCommentVideoByUserIdAndDiscId" resultType="int">
+		select count(0) from kp_video_discuss where disc_id = #{discId} and user_id = #{userId}
+	</select>
+	<select id="getCommentMovieByUserIdAndDiscId" resultType="int">
+		select count(0) from kp_movie_discuss where disc_id = #{discId} and user_id = #{userId}
+	</select>
+	
+	<update id="deleteCommentVideo">
+		update kp_video_discuss set is_del = 1 where disc_id = #{discId}
+	</update>
+	
+	<update id="deleteCommentMovie">
+		update kp_movie_discuss set is_del = 1 where disc_id = #{discId}
+		or rpy_disc_id = #{discId}
+	</update>
+</mapper>

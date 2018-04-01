@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kaipai.ck.mapper.bill.UserWithdrawBindMapper">
+	
+	<select id="findWithdrawBindByUserId" parameterType="long" resultType="com.kaipai.ck.model.bill.UserWithdrawBindModel">
+		select 
+			user_id as userId,
+			bind_id as bindId,
+			bind_type as bindType,
+			real_name as realName,
+			create_tm as createTm,
+			update_tm as updateTm
+		from
+			kp_user_withdraw_bind
+		where
+			user_id = #{userId}
+	</select>
+	
+	<insert id="createUserWithdrawBind" parameterType="com.kaipai.ck.model.bill.UserWithdrawBindModel">
+		insert into 
+			kp_user_withdraw_bind(`user_id`,`bind_id`,`bind_type`,`real_name`,`create_tm`,`update_tm`)
+		values
+			(#{userId},#{bindId},#{bindType},#{realName},now(),now())
+	</insert>
+	
+	<update id="updateUserWithdrawBind" parameterType="com.kaipai.ck.model.bill.UserWithdrawBindModel">
+		update
+			kp_user_withdraw_bind
+		set
+			bind_id = #{bindId},
+			update_tm = now()
+		where 
+			user_id = #{userId} and bind_type = #{bindType}
+	</update>
+	
+	<select id="findBindIsHave" parameterType="com.kaipai.ck.model.bill.UserWithdrawBindModel" resultType="int">
+		select 
+			count(0) 
+		from 
+			kp_user_withdraw_bind
+		where 
+			user_id = #{userId} and bind_type = #{bindType}
+	</select>
+	
+</mapper>

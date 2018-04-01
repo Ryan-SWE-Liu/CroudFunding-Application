@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kaipai.ck.mapper.company.CompanyMapper">
+
+
+	<!-- 查询众筹公司详细信息 -->
+	<select id="findCollCompanyInfo" resultType="com.kaipai.ck.model.company.CollCompany" parameterType="hashmap">
+		 	select 
+			 t.coll_no collNo,
+			 t.company_code companyCode,
+			 t.company_rate companyRate,
+			 t.employee_rate employeeRate,
+			 t.user_rate userRate,
+			 cl.coll_name collName,
+			 cl.coll_img_url collImgUrl,
+			 cl.coll_type collType,
+			 cp.company_name companyName
+			from kp_coll_company t left join kp_collections cl on t.coll_no = cl.coll_no
+			left join kp_companys cp on t.company_code = cp.company_code
+			where t.coll_no = #{collNo}
+			and t.company_code = #{companyCode}
+			and t.is_del = 0
+		 	
+	</select>
+	
+
+	<!-- 查询用户跟公司是否绑定 -->
+	<select id="findCollCompanyByUserIdAndCcode" resultType="long" parameterType="hashmap">
+		 	select 
+			count(0)
+			from kp_user_company t 
+			where t.user_id = #{userId}
+			and t.company_code = #{companyCode}
+			and t.is_del = 0
+	</select>
+	
+	
+	<!-- 查询众筹公司转发信息 -->
+	<select id="findCollCompany" resultType="com.kaipai.ck.model.company.CollCompany" parameterType="hashmap">
+		 	select 
+			t.user_rate userRate
+			from kp_coll_company t 
+			where t.coll_no = #{collNo}
+			and t.company_code = #{companyCode}
+			and t.is_del = 0
+	</select>
+	
+	
+	<!-- 用户跟公司对应关系 -->
+	<insert id="createUserCompany" parameterType="com.kaipai.ck.model.company.UserCompanyModel" >
+		INSERT INTO kp_user_company (
+			user_id,
+			company_code,
+			create_tm,
+			is_del
+			) values(
+			#{userId},
+			#{companyCode},
+			SYSDATE(),
+			0
+			)
+			
+	</insert>
+</mapper>

@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kaipai.ck.mapper.initiator.InitiatorMapper">
+
+    <!-- 发起人列 -->
+	<sql id="initiatorColumn">
+	  	a.id as id,
+		a.user_id as userId,
+		a.auth_name as authName,
+		a.auth_no as authNo,
+		a.job_name as jobName,
+		a.graduate_name as graduateName,
+		a.self_info as selfInfo,
+		a.self_prod_info as selfProdInfo,
+		a.is_promise as isPromise,
+		a.auth_type as authType,
+		a.company_name as companyName,
+		a.company_auth_url as companyAuthUrl,
+		a.company_log_url as companyLogUrl,
+		a.self_auth1_url as selfAuth1Url,
+		a.selef_auth2_url as selefAuth2Url,
+		a.company_tel as companyTel,
+		a.company_addr as companyAddr,
+		a.company_web_site as companyWebSite,
+		a.auth_state as authState,
+		a.auth_reson as authReson,
+		a.post_tm as postTm,
+		a.auth_tm as authTm,
+		a.auth_user_id as authUserId,
+		a.auth_user_name as authUserName,
+		a.create_tm as createTm,
+		a.is_del as isDel
+	</sql>
+    
+	<!-- 获取发起人列表 -->
+     <select id="getInitiatorList" parameterType="map" resultType="com.kaipai.ck.model.initiator.UserAuth">
+        
+         SELECT <include refid="initiatorColumn" />,b.user_name as userName
+          FROM kp_user_auth_his a left join kp_users b on a.user_id = b.user_id
+         WHERE a.is_del = '0'
+         <if test="authState != null and authState !=''">
+             AND a.auth_state = #{authState}
+         </if>
+         <if test="authName != null and authName !=''">
+             AND a.auth_name like CONCAT('%',#{authName},'%')
+         </if>
+         <if test="userName != null and userName !=''">
+             AND b.user_name like CONCAT('%',#{userName},'%')
+         </if>
+          <if test="startPostTm != null and startPostTm !=''">
+             AND a.post_tm >= #{startPostTm}
+         </if>
+         <if test="endPostTm != null and endPostTm !=''">
+             AND a.post_tm  <![CDATA[<=]]> #{endPostTm}
+         </if>
+         order by a.post_tm asc
+         limit #{pageIndex},#{pageSize}
+    </select>
+    
+     
+     <!-- 获取发起人列表总数 -->
+     <select id="getInitiatorListCount" parameterType="map" resultType="int">
+          SELECT count(*)
+          FROM kp_user_auth_his a left join kp_users b on a.user_id = b.user_id
+         WHERE is_del = '0'
+         <if test="authState != null and authState !=''">
+             AND a.auth_state = #{authState}
+         </if>
+         <if test="authName != null and authName !=''">
+             AND a.auth_name like CONCAT('%',#{authName},'%')
+         </if>
+         <if test="userName != null and userName !=''">
+             AND b.user_name like CONCAT('%',#{userName},'%')
+         </if>
+          <if test="startPostTm != null and startPostTm !=''">
+             AND a.post_tm >= #{startPostTm}
+         </if>
+         <if test="endPostTm != null and endPostTm !=''">
+             AND a.post_tm  <![CDATA[<=]]> #{endPostTm}
+         </if>
+     </select>
+     
+    <!-- 发起人ID 获取详情 -->
+     <select id="getInitiatorDetail" parameterType="long" resultType="com.kaipai.ck.model.initiator.UserAuth">
+         SELECT 
+			b.id_name AS idName,b.`id_card` AS idCard,
+				<include refid="initiatorColumn" />
+ 				FROM kp_user_auth_his a LEFT JOIN kp_user_info b ON a.`user_id` = b.`user_id`
+ 				WHERE is_del = '0' AND a.id = #{id}
+     </select>
+     
+        <!-- 根据ID获取一个发起人 -->
+     <select id="getInitiator" parameterType="long" resultType="com.kaipai.ck.model.initiator.UserAuth">
+          SELECT <include refid="initiatorColumn" />
+          FROM kp_user_auth_his a
+         WHERE a.is_del = '0' AND id = #{id}
+         
+     </select>
+    
+     
+     <!-- 更新发起人 -->
+     <update id="updateInitiator" parameterType="com.kaipai.ck.model.initiator.UserAuth">
+         UPDATE kp_user_auth_his
+         <set>
+             <if test="authState != null and authState !=''">
+                 auth_state = #{authState},
+             </if>
+             <if test="authReson != null and authReson !=''">
+                 auth_reson = #{authReson},
+             </if>
+             <if test="authTm != null and authTm !=''">
+                 auth_tm = #{authTm},
+             </if>
+             <if test="authUserId != null and authUserId !=''">
+                 auth_user_id = #{authUserId},
+             </if>
+             <if test="authUserName != null and authUserName !=''">
+                 auth_user_name = #{authUserName},
+             </if>
+         </set>
+         WHERE id = #{id}
+     </update>
+     
+     <!-- 更新用户状态 -->
+     <update id="updateUser" parameterType="java.lang.String">
+         
+         UPDATE kp_users
+     		set pd_auth_flg = #{pdAuthFlg}
+     		 WHERE user_id = #{userId}
+     </update>
+     
+    <select id="getMoviesCount" parameterType="java.lang.String" resultType="int">
+        
+        SELECT count(1) FROM kp_movies WHERE is_del = '0' and user_id = #{userId}
+        <if test="movState != null and movState != ''">
+            AND mov_state = #{movState} 
+        </if>
+    </select>
+	
+</mapper>

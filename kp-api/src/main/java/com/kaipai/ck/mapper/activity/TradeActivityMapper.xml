@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kaipai.ck.mapper.activity.TradeActivityMapper">
+
+	<sql id="baseColumn" >
+		 act_no AS actNo,act_name AS actName,act_st AS actSt,
+			act_ed AS actEd,act_desc as  actDesc,act_img_url AS actIcon,act_state AS actState,
+			act_type AS actType,is_del AS isDel,pub_user_name AS pubUserName,create_tm AS createTm,
+			pub_tm AS pubTm,act_link_url AS actUrl,coll_no as collNo,point_desc as pointDesc
+ 	</sql>
+
+	<!-- 查询交易活动列表 -->
+	<select id="findTradeActList" parameterType="map" resultType="com.kaipai.ck.model.activity.ActivityModel">
+		select 
+			ka.act_name as actName,
+			ka.act_img_url as actIcon,
+			ka.pub_tm as pubTm,
+			ka.act_link_url as actUrl,
+			ka.act_no as actNo,
+			ka.act_type as actType
+		from 
+			kp_activities ka 
+		where 
+			ka.is_del = '0' and (ka.act_state = 'OPEN' or ka.act_state = 'LIST')
+		<if test="actType != null and actType != ''">
+			and ka.act_type=#{actType}
+		</if>
+		<if test="lastTm != null">
+			<![CDATA[
+				and ka.pub_tm < #{lastTm,jdbcType=TIMESTAMP}
+			]]>
+		</if>
+		order by ka.pub_tm desc
+		limit #{rows}
+	</select>
+	
+	<!-- 获取活动列表 -->
+	<select id="getActivityList" parameterType="map" resultType="com.kaipai.ck.model.activity.ActivityModel">
+		select <include refid="baseColumn" /> from kp_activities where is_del = '0'
+		<if test="actType != null and actType != ''">
+			and act_type = #{actType}
+		</if>
+		<if test="actName != null and actName != ''">
+			and act_name like CONCAT('%',#{actName},'%')
+		</if>
+		<if test="actNo != null and actNo != ''">
+			and act_no = #{actNo}
+		</if>
+		<if test="actState != null and actState != ''">
+			and act_state = #{actState}
+		</if>
+		  <if test="startPubTm != null and startPubTm != ''">
+        	AND pub_tm  >= #{startPubTm}
+        </if>
+         <if test="endPubTm != null and endPubTm !=''">
+             AND pub_tm  <![CDATA[<=]]> #{endPubTm}
+         </if>
+	</select>
+	<!-- 根据ID获取一个活动 -->
+	<select id="getActivity" parameterType="String" resultType="com.kaipai.ck.model.activity.ActivityModel">
+		select <include refid="baseColumn" /> from kp_activities where is_del = '0' and act_no = #{actNo}
+	</select>
+	
+	<!-- 根据活动状态获取活动列表 -->
+	<select id="getActivityByState" parameterType="String" resultType="com.kaipai.ck.model.activity.ActivityModel">
+		select <include refid="baseColumn" /> from kp_activities where is_del = '0' and act_state = #{actState}
+	</select>
+	
+	<!-- 获取活动总数 -->
+	<select id="getActivityCount" parameterType="map" resultType="int">
+		select count(1) from kp_activities where is_del = '0'
+		<if test="actType != null and actType != ''">
+			and act_type = #{actType}
+		</if>
+		<if test="actName != null and actName != ''">
+			and act_name like CONCAT('%',#{actName},'%')
+		</if>
+		<if test="actNo != null and actNo != ''">
+			and act_no = #{actNo}
+		</if>
+		<if test="actState != null and actState != ''">
+			and act_state = #{actState}
+		</if>
+		  <if test="startPubTm != null and startPubTm != ''">
+        	AND pub_tm  >= #{startPubTm}
+        </if>
+         <if test="endPubTm != null and endPubTm !=''">
+             AND pub_tm  <![CDATA[<=]]> #{endPubTm}
+         </if>
+	</select>
+	
+	<!-- 修改活动 -->
+	<update id="updateActivity" parameterType="com.kaipai.ck.model.activity.ActivityModel">
+		update kp_activities 
+		<set>
+			<if test="actState != null and actState != ''">
+				act_state = #{actState},
+			</if>
+			<if test="actType != null and actType != ''">
+				act_type = #{actType},
+			</if>
+			<if test="actName != null and actName != ''">
+				act_name = #{actName},
+			</if>
+			<if test="actIcon != null and actIcon != ''">
+				act_img_url = #{actIcon},
+			</if>
+			<if test="actSt != null and actSt != ''">
+				act_st = #{actSt},
+			</if>
+			<if test="actEd != null and actEd != ''">
+				act_ed = #{actEd},
+			</if>
+			<if test="actDesc != null and actDesc != ''">
+				act_desc = #{actDesc},
+			</if>
+			<if test="pointDesc != null and pointDesc != ''">
+				point_desc = #{pointDesc},
+			</if>
+			<if test="actUrl != null and actUrl != ''">
+				act_link_url = #{actUrl},
+			</if>
+			<if test="pubTm != null and pubTm != ''">
+				pub_tm = #{pubTm},
+			</if>
+			<if test="pubUserName != null and pubUserName != ''">
+				pub_user_name = #{pubUserName},
+			</if>
+			<if test="collNo != null and collNo != ''">
+				coll_no = #{collNo},
+			</if>
+		</set>
+		where is_del = '0' and act_no = #{actNo}
+	</update>
+	<!-- 新增活动 -->
+	<insert id="insertActivity" parameterType="com.kaipai.ck.model.activity.ActivityModel">
+		insert into kp_activities(act_no,act_name,act_st,act_ed,act_desc,act_img_url,act_state,act_type,
+			pub_user_name,act_link_url,create_tm,pub_tm,is_del,act_posi_type,act_category,coll_no,point_desc) 
+			values (
+				#{actNo},#{actName},#{actSt},#{actEd},#{actDesc},#{actIcon},
+				#{actState},#{actType},#{pubUserName},#{actUrl},
+				#{createTm},#{pubTm},#{isDel},#{actPosiType},#{actCategory},#{collNo},#{pointDesc}
+			)
+	</insert>
+	<!-- 删除活动 -->
+	<delete id="deleteActivity" parameterType="String">
+		update kp_activities set is_del = '1' where act_no = #{actNo}
+	</delete>
+
+</mapper>

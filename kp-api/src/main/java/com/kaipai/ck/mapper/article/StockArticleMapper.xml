@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+
+<mapper namespace="com.kaipai.ck.mapper.article.StockArticleMapper">
+
+	<insert id="insertStockArticle" parameterType="com.kaipai.ck.model.article.StockArticleModel" >
+	    <![CDATA[
+	        INSERT INTO kp_stock_article (
+	        	title ,
+	        	author ,
+	        	type ,
+	        	create_tm ,
+	        	content
+	        ) VALUES (
+	        	#{title} ,
+	        	#{author} ,
+	        	#{type} ,
+	        	#{createTm} ,
+	        	#{content} 
+	        )
+	    ]]>
+	</insert>
+    
+	<update id="updateStockArticle" parameterType="com.kaipai.ck.model.article.StockArticleModel">
+        UPDATE 
+        	kp_stock_article 
+        <set>
+			<if test="title != null and title != ''">
+				title = #{title} ,
+			</if>
+			<if test="author != null and author != ''">
+				author = #{author} ,
+			</if>
+			<if test="type != null">
+				 type = #{type} ,
+			</if>
+			<if test="updateTm != null and updateTm != ''">
+				 update_tm = #{updateTm} ,
+			</if>
+			<if test="content != null and content != ''">
+				 content = #{content},
+			</if>
+		</set>
+        WHERE 
+	        id = #{id} 
+	</update>
+
+    <delete id="deleteStockArticle" parameterType="java.lang.Integer">
+        update  
+        	kp_stock_article 
+        set 
+        	is_del=1 
+        WHERE
+        	id = #{id} 
+    </delete>
+    
+    <select id="getStockArticle" parameterType="java.lang.Integer" resultType="com.kaipai.ck.model.article.StockArticleModel">
+		SELECT 
+			id,
+			type,
+			author,
+        	title as title,
+        	content as content,
+        	create_tm as createTm
+		FROM 
+			kp_stock_article 
+	    WHERE 
+		    id = #{id} 
+	</select>
+	
+	<select id="getStockArticleList" parameterType="map"  resultType="com.kaipai.ck.model.article.StockArticleModel">
+		SELECT 
+			id as id,
+        	title as title,
+        	author as author,
+        	create_tm as createTm,
+        	type
+	    FROM 
+	    	kp_stock_article
+	    where 
+	    	is_del=0
+	    <if test="title != null and title !=''">
+		 	and	title like concat(#{title},"%")
+		</if>
+		<if test="type != null">
+		 	and	type=#{type}
+		</if>
+		<if test="author != null and author !=''">
+			and	author like concat(#{author},"%")
+		</if>
+		<if test="startTm != null and startTm != ''">
+       	 	and create_tm  >= #{startTm}
+       	</if>
+        <if test="endTm != null and endTm !=''">
+         	and create_tm  <![CDATA[<=]]> #{endTm}
+		</if>
+       	ORDER BY
+			create_tm DESC
+		limit #{pageIndex},#{pageSize}
+	</select>
+	
+	<select id="getStockArticleCount" parameterType="map" resultType="int">
+		SELECT 
+			count(1) counts
+		 FROM 
+	    	kp_stock_article
+	    where 
+	    	is_del=0
+	 	<if test="title != null and title !=''">
+		 	and	title like concat(#{title},"%")
+		</if>
+		<if test="type != null">
+		 	and	type=#{type}
+		</if>
+		<if test="author != null and author !=''">
+			and	author like concat(#{author},"%")
+		</if> 
+		<if test="startTm != null and startTm != ''">
+       	 	and create_tm  <![CDATA[>=]]> #{startTm}
+       	</if>
+        <if test="endTm != null and endTm !=''">
+         	and create_tm  <![CDATA[<=]]> #{endTm}
+		</if>
+	</select>
+		
+	<select id="getStockArticlePageList" resultType="com.kaipai.ck.model.article.StockArticleModel">
+		SELECT 
+			id,
+        	title,
+        	author as author,
+        	content as content,
+        	create_tm as createTm
+		FROM 
+			kp_stock_article
+		where
+			is_del=0
+		and 
+			type=#{type}
+		<if test="createTm != null and createTm !=''">
+		 	and create_tm  <![CDATA[<]]> #{createTm}
+		</if>
+		ORDER BY
+			create_tm DESC
+		limit 10;
+	</select>	
+</mapper>
+

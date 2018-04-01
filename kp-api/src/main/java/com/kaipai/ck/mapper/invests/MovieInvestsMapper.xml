@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kaipai.ck.mapper.invests.MovieInvestsMapper">
+
+    <!-- 电影投资管理-->
+    <sql id="movieInvestsColumn">
+        mov_no as movNo,invest_no as investNo,invest_name as investsName,
+        invest_amt_ttl as investAmtTtl,state,create_tm as createTm,
+        is_del as isDel,orderby as orderBy
+    </sql>
+    <!-- 电影投资列表 -->
+    <sql id="movieInvestListColumn">
+        a.mov_no as movNo ,a.invest_no as investNo,a.invest_usr_id as investUsrId,
+        a.intent_usr_name as intentUsrName,a.intent_usr_mobile as  intentUsrMobile,
+        a.intention_id as intentionId,id,a.invest_amt as investAmt,a.state,
+        a.create_tm as createTm,a.is_del as isDel
+    </sql>
+    <!-- 电影投资意向 -->
+    <sql id="movieIntentionColumn">
+        a.mov_no as movNo,a.invest_no as investNo,a.intention_id as intentionId,
+        a.intent_usr_id as intentUsrId,a.intent_usr_name as intentUsrName,
+        a.intent_usr_mobile as intentUsrMobile,a.intent_amt as intentAmt,a.state,
+        a.create_tm as createTm,a.is_del as isDel
+        
+    </sql>
+
+    <!-- 查询电影投资列表 -->
+    <select id="getMovieInvestsList" parameterType="map" resultType="com.kaipai.ck.model.invests.MovieInvests">
+        
+        SELECT <include refid="movieInvestsColumn" /> FROM kp_movie_invests
+        WHERE is_del = '0'
+        
+        
+        <if test="movNo != null and movNo != ''">
+            AND mov_no = #{movNo}
+        </if>
+        
+        <if test="investsName != null and investsName != ''">
+            AND invest_name like CONCAT('%',#{investsName},'%')
+        </if>
+        <if test="startCreateTm != null and startCreateTm !=''">
+            AND create_tm >= #{startCreateTm}
+        </if>
+        <if test="endCreateTm != null and endCreateTm !=''">
+            AND create_tm   <![CDATA[<=]]>   #{endCreateTm}
+        </if>
+        
+        order by orderby DESC
+        limit #{pageIndex},#{pageSize}
+    </select>
+    
+    <!-- 添加电影项目投资管理 -->
+    <insert id="insertMovieInvests" parameterType="com.kaipai.ck.model.invests.MovieInvests" >
+        INSERT INTO kp_movie_invests (
+        	mov_no ,
+        	invest_no ,
+        	invest_name ,
+        	invest_amt_ttl ,
+        	state ,
+        	orderby ,
+        	create_tm ,
+        	is_del 
+        ) VALUES (
+        	#{movNo,jdbcType=VARCHAR} ,
+        	#{investsNo,jdbcType=VARCHAR} ,
+        	#{investsName,jdbcType=VARCHAR} ,
+        	#{investAmtTtl,jdbcType=DOUBLE} ,
+        	#{state,jdbcType=VARCHAR} ,
+        	#{orderBy,jdbcType=BIGINT} ,
+        	SYSDATE() ,
+        	0
+        )
+	</insert>
+    
+    <!-- 修改电影投资项目状态 -->
+    <update id="updateMovieInvests" parameterType="com.kaipai.ck.model.invests.MovieInvests">
+        UPDATE kp_movie_invests
+        <set>
+            
+            <if test="state != null and state != ''">
+                state = #{state},
+            </if>
+            <if test="orderBy != null and orderBy != ''">
+            	orderby = #{orderBy},
+            </if>
+        </set>
+        WHERE mov_no = #{movNo}
+    </update>
+    
+    
+	<!-- 查询电影投资列表总数 -->
+    <select id="getMovieInvestsCount" parameterType="map" resultType="int">
+        SELECT count(1) FROM kp_movie_invests WHERE is_del = '0'
+         <if test="investName != null and investName !=''">
+            AND invest_name = #{investName} 
+        </if>
+        
+    </select>
+    
+    <!-- 获取投资列表 -->
+    <select id="getMovieInvestLists" parameterType="map" resultType="com.kaipai.ck.model.invests.MovieInvestList">
+        
+        SELECT <include refid="movieInvestListColumn" /> ,b.invest_name as investsName FROM kp_movie_invest_list  a left  join kp_movie_invests b on a.mov_no = b.mov_no
+        WHERE a.is_del = '0'
+        <if test="movNo != null and movNo != ''">
+            AND a.mov_no = #{movNo}
+        </if>
+         <if test="id != null and id != ''">
+            AND a.id = #{id}
+        </if>
+        <if test="investsName != null and investsName != ''">
+            AND b.invest_name like CONCAT('%',#{investsName},'%')
+        </if>
+        <if test="intentUsrName != null and intentUsrName !=''">
+            AND a.intent_usr_name like CONCAT('%',#{intentUsrName},'%')
+        </if>
+        <if test="startCreateTm != null and startCreateTm !=''">
+            AND a.create_tm >= #{startCreateTm}
+        </if>
+        <if test="endCreateTm != null and endCreateTm !=''">
+            AND a.create_tm   <![CDATA[<=]]>   #{endCreateTm}
+        </if>
+         
+    </select>
+    <!-- 获取投资列表总数 -->
+    <select id="getMovieInvestListsCount" parameterType="map" resultType="int">
+        
+        SELECT count(1) FROM kp_movie_invest_list
+        WHERE is_del = '0'
+        <if test="movNo != null and movNo != ''">
+            AND mov_no = #{movNo}
+        </if>
+    </select>
+    
+    
+    
+    
+    <!-- 根据用户ID获取认证的状态 -->
+    <select id="selectUsersByUserId" parameterType="long" resultType="int">
+        SELECT invest_auth_flg as a FROM kp_users WHERE user_id = #{userId}
+    </select>
+    
+    <!-- 根据电影项目编号获取总投资金额 -->
+    <select id="getMovieInvestListInvestAmt" parameterType="java.lang.String" resultType="java.math.BigDecimal">
+        SELECT sum(invest_amt) FROM kp_movie_invest_list  WHERE is_del = '0' and state='OK'  AND mov_no = #{movNo}
+    </select>
+    
+    <!-- 查询投资意向列表 -->
+    <select id="getMovieIntentionList" parameterType="map" resultType="com.kaipai.ck.model.invests.MovieIntentionList">
+        SELECT <include refid="movieIntentionColumn" />,b.invest_name as investsName FROM kp_movie_intention_list a left  join kp_movie_invests b on a.mov_no = b.mov_no
+        WHERE a.is_del = '0'
+        <if test="movNo != null and movNo != ''">
+            AND a.mov_no = #{movNo}
+        </if>
+        <if test="investsName != null and investsName != ''">
+            AND b.invest_name like CONCAT('%',#{investsName},'%')
+        </if>
+        <if test="intentUsrName != null and intentUsrName !=''">
+            AND a.intent_usr_name like CONCAT('%',#{intentUsrName},'%')
+        </if>
+        <if test="startCreateTm != null and startCreateTm !=''">
+            AND a.create_tm >= #{startCreateTm}
+        </if>
+        <if test="endCreateTm != null and endCreateTm !=''">
+            AND a.create_tm   <![CDATA[<=]]>   #{endCreateTm}
+        </if>
+         order by a.create_tm asc
+         limit #{pageIndex},#{pageSize}
+    </select>
+    
+    <!-- 根据ID查询投资意向  -->
+    <select id="getMovieIntention" parameterType="long" resultType="com.kaipai.ck.model.invests.MovieIntentionList">
+         SELECT <include refid="movieIntentionColumn" /> FROM kp_movie_intention_list a
+         WHERE is_del = '0' AND intention_id = #{intentionId}
+        
+    </select>
+    
+    <!-- 查询投资意向列表总数 -->
+    <select id="getMovieIntentionListCount" parameterType="map" resultType="int">
+        SELECT count(1) FROM kp_movie_intention_list
+        WHERE is_del = '0'
+        <if test="movNo != null and movNo != ''">
+            AND mov_no = #{movNo}
+        </if>
+        
+    </select>
+    
+    <!-- 添加电影投资意向 -->
+    <insert id="insertMovieIntentionList" parameterType="com.kaipai.ck.model.invests.MovieIntentionList" >
+        INSERT INTO kp_movie_intention_list (
+        	mov_no ,
+        	invest_no ,
+        	intent_usr_id ,
+        	intent_usr_name ,
+        	intent_usr_mobile ,
+        	intent_amt ,
+        	create_tm ,
+        	is_del 
+        ) VALUES (
+        	#{movNo,jdbcType=VARCHAR} ,
+        	#{investNo,jdbcType=VARCHAR} ,
+        	#{intentUsrId,jdbcType=BIGINT} ,
+        	#{intentUsrName,jdbcType=VARCHAR} ,
+        	#{intentUsrMobile,jdbcType=VARCHAR} ,
+        	#{intentAmt,jdbcType=DOUBLE} ,
+        	SYSDATE() ,
+        	0
+        )
+	</insert>
+    
+    <!-- 修改电影投资意向 -->
+    <update id="updateMovieIntentionList" parameterType="com.kaipai.ck.model.invests.MovieIntentionList">
+        UPDATE kp_movie_intention_list
+        <set>
+            <if test="state != null and state != ''">
+                state = #{state},
+            </if>
+        </set>
+        WHERE intention_id = #{intentionId}
+    </update>
+    
+    <!-- 新增电影投资人 -->
+    <insert id="insertMovieInvestList" parameterType="com.kaipai.ck.model.invests.MovieInvestList">
+        INSERT INTO kp_movie_invest_list(mov_no,invest_no,invest_usr_id,intent_usr_name,intent_usr_mobile,
+        intention_id,invest_amt,state,create_tm,is_del)
+        VALUES(
+        	#{movNo},#{investsNo},#{investUsrId},#{intentUsrName},#{intentUsrMobile},#{intentionId}
+        	,#{investAmt},#{state},SYSDATE(),0
+        )
+        
+    </insert>
+    <!-- 修改电影投资人 -->
+    <update id="updateMovieInvestList" parameterType="com.kaipai.ck.model.invests.MovieInvestList">
+        UPDATE kp_movie_invest_list
+        <set>
+            <if test="intentUsrMobile != null and intentUsrMobile != ''">
+                intent_usr_mobile = #{intentUsrMobile},
+            </if>
+            <if test="investAmt != null and investAmt != ''">
+                invest_amt = #{investAmt},
+            </if>
+            <if test="isDel != null and isDel != ''">
+                is_del = #{isDel},
+            </if>
+        </set>
+        WHERE id = #{id}
+    </update>
+	
+</mapper>

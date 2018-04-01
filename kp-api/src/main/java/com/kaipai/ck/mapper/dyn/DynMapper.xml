@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kaipai.ck.mapper.dyn.DynMapper">
+	<!-- 发布一条新动态 -->
+	<insert id="createUserDyn" useGeneratedKeys="true" keyProperty="msgId" parameterType = "com.kaipai.ck.model.dyn.AppUserDynModel">
+		insert into kp_user_dyn_msgs(user_id,title,pub_content,nick_name,scope,user_icon)
+		values(#{userId},#{title},#{content},#{nickName},#{scope},#{userIcon})
+	</insert>
+	
+	<!-- 插入图片 -->
+	<insert id="createDynPic" parameterType = "com.kaipai.ck.model.dyn.DynPicModel">
+		insert into kp_dyn_pic(msg_id,pic_url) values(#{msgId},#{picUrl})
+	</insert>
+	
+	<!-- 查询动态的图片 -->
+	<select id="findDynPicByMsgId" resultType="com.kaipai.ck.model.dyn.DynPicModel" parameterType="String">
+		select select kdp.pic_id as picId,kdp.msg_id as msgId,kdp.pic_id as picUrl
+		from kp_dyn_pic kdp 
+		where kdp.msg_id = #{msgId} and kdp.is_del = '0';
+	</select>
+	<!-- 删除一张动态图片 -->
+	<update id="deleteDynPicByPicId" parameterType="String">
+		update kp_dyn_pic set is_del = '1' where pic_id = #{picId}
+	</update>
+	
+	<!-- 删除动态的所有图片 -->
+	<update id="deleteDynPicsByMsgId" parameterType="String">
+		update kp_dyn_pic set is_del = '1' where pic_id = #{msgId}
+	</update>
+	
+	<!-- 公开动态列表 -->
+	<select id="findPublicDynList" resultType="com.kaipai.ck.model.dyn.AppUserDynModel" parameterType="com.kaipai.ck.model.common.QueryModel">
+		select kudm.msg_id as msgId,kudm.user_id as userId,kudm.title,kudm.pub_content as content,kudm.nick_name as nickName,kudm.pub_tm as pubTm,
+		(select count(0) from kp_user_dyn_msg_praise kudmp where kudmp.is_del = '0' and kudmp.msg_id = msgId) as likes
+		from kp_user_dyn_msgs kudm
+		where kudm.scope = '2' and kudm.is_del = '0'
+		order by kudm.pub_content desc
+		limit #{pageIndex},#{pageSize}
+	</select>
+	
+	<!--个人发布的动态列表 -->
+	<select id="findUserDynList" resultType="com.kaipai.ck.model.dyn.AppUserDynModel" parameterType="com.kaipai.ck.model.common.QueryModel">
+		select kudm.msg_id as msgId,kudm.user_id as userId,kudm.title,kudm.pub_content as content,kudm.nick_name as nickName,kudm.pub_tm as pubTm,
+		(select count(0) from kp_user_dyn_msg_praise kudmp where kudmp.is_del = '0' and kudmp.msg_id = msgId) as likes
+		from kp_user_dyn_msgs kudm
+		where kudm.is_del = '0' and kudm.user_id = #{userId}
+		order by kudm.pub_content desc
+		limit #{pageIndex},#{pageSize}
+	</select>
+	
+	<!-- 删除动态 -->
+	<update id="deleteDynByUserId" parameterType = "com.kaipai.ck.model.dyn.AppUserDynModel">
+		update kp_user_dyn_msgs set is_del = '1' where user_id = #{userId} and msg_id = #{msgId}
+	</update>
+	
+	<!-- 动态点赞 -->
+	<insert id="createLikeForDyn" parameterType = "com.kaipai.ck.model.dyn.DynPriaiseModel">
+		insert into kp_user_dyn_msg_praise(user_id,msg_id,nick_name,user_icon,is_del)
+		values(#{userId},#{msgId},#{nickName},#{userIcon},'0')
+	</insert>
+	
+	<!-- 取消点赞 -->
+	<delete id="deleteLikeForDyn" parameterType="com.kaipai.ck.model.dyn.DynPriaiseModel">
+		delete from kp_user_dyn_msg_praise where user_id = #{userId} and msg_id = #{msgId}
+	</delete>
+</mapper>

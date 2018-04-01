@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kaipai.ck.mapper.bill.StockInfoMapper">
+
+
+	
+	<!-- 添加股票信息 -->
+	<insert id="insertStockInfo" parameterType="com.kaipai.ck.model.bill.StockInfoModel"  >
+		insert into xf_stocks(
+			stock_code,
+			state,
+			stock_name,
+			fx_num,
+			fx_amt,
+			trade_amt,
+			city_code,
+			city_name,
+			area_code,
+			area_name,
+			address,
+			contact_name,
+			mobile,
+			buy_fee_rate,
+			sale_fee_rate,
+			create_tm,
+			user_id,
+			is_del,
+			stock_user_id
+		)values(
+			#{stockCode},
+			#{state},
+			#{stockName},
+			#{fxNum},
+			#{fxAmt},
+			#{tradeAmt},
+			#{cityCode},
+			#{cityName},
+			#{areaCode},
+			#{areaName},
+			#{address},
+			#{contactName},
+			#{mobile},
+			#{buyFeeRate},
+			#{saleFeeRate},
+			SYSDATE(),
+			#{userId},
+			0,
+			#{stockUserId}
+			)
+	</insert>
+	
+	<!-- 更新股票状态 -->
+	<update id="updateStockState" parameterType="com.kaipai.ck.model.bill.StockInfoModel">
+		update xf_stocks set state = #{state}
+		<if test="tradeSt != null and tradeSt != ''">
+		 	,trade_st = #{tradeSt}
+		</if> 
+		where stock_code = #{stockCode}
+	</update>
+	
+	<!-- 流通比排名  低的靠前-->
+	<select id="findCricOrder" resultType="string">
+		SELECT 
+			a.stock_code AS stockCode 
+		FROM 
+			xf_stocks a 
+		LEFT JOIN 
+			xf_stock_freezd b 
+			ON 
+				a.stock_code = b.stock_code
+		WHERE 
+			a.state = 'SALING' 
+		ORDER BY 
+			b.freezd_num/a.fx_num
+	</select>
+	<!-- 发行股票的用户 -->
+	<select id="findStockUserIds" resultType="long">
+		select 
+			user_id
+		from 
+			xf_stocks
+		where 
+			user_id >0
+		union
+		select
+			stock_user_id
+		from
+			xf_stocks
+		where
+			stock_user_id >0
+	</select>
+	
+	<!-- 股票持有人数 -->
+	<select id="findStockOwersCount" resultType="int">
+		select
+			count(1)
+		from
+			xf_user_stock
+		where
+			stock_code = #{stockCode}
+		and trade_num > 0
+	</select>
+	
+
+</mapper>

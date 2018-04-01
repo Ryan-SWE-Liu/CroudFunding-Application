@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kaipai.ck.mapper.homeconfig.HomeConfigMapper">
+
+
+	<!-- 查询首页参数配置 -->
+	<select id="getHomeConfigInfo" resultType="com.kaipai.ck.model.homeconfig.HomeConfig" parameterType="long">
+		select 
+			t.home_id homeId,
+			t.home_name homeName,
+			date_format(t.create_tm,'%Y-%c-%d %H:%i:%s') createTm,
+			t.state ,
+			t.plat_type platType,
+			t.web_opsition webOpsition
+		from kp_home_config t
+		 where home_id = #{homeId,jdbcType=BIGINT}
+	</select>
+
+
+		<!-- ***************** 首页参数配置明细  ****************** -->
+
+	<!-- 查询权限首页参数配置明细 -->
+	<select id="findHomeConfigDetailByHomeId" resultType="com.kaipai.ck.model.homeconfig.HomeConfigDetail" parameterType="long">
+		select 
+			t.id ,
+			t.home_id homeId,
+			t.view_type viewType,
+			t.`val` as val ,
+			t.icon_url iconUrl,
+			date_format(t.create_tm,'%Y-%c-%d %H:%i:%s') createTm,
+			t.open_type openType,
+			t.open_url openUrl,
+			t.state
+		from kp_home_config_dtl t
+		where home_id=#{homeId,jdbcType=BIGINT} and is_del = '0'
+	</select>
+	
+
+
+
+
+
+
+
+
+
+
+	<!-- 分页查询首页参数配置 -->
+	<select id="getHomeConfigQueryPage" resultType="com.kaipai.ck.model.homeconfig.HomeConfig" parameterType="hashmap">
+		select 
+			t.home_id homeId,
+			t.home_name homeName,
+			date_format(t.create_tm,'%Y-%c-%d %H:%i:%s') createTm,
+			t.state ,
+			t.plat_type platType,
+			t.web_opsition webOpsition
+		from kp_home_config t
+		 where 1=1
+		<if test="homeName != null and homeName!=''">
+		  and t.home_name like '%${homeName}%' 
+		</if>
+		<if test="platType != null and platType != ''">
+		  and t.plat_type = #{platType}
+		</if>
+		<if test="webOpsition != null and webOpsition != ''">
+		  and t.web_opsition = #{webOpsition}
+		</if>
+		order by t.home_id desc
+		limit #{pageIndex},#{pageSize}
+	</select>
+
+	<!-- 查询记录的总数，用于分页显示 -->
+	<select id="getTotalCount" resultType="long"  parameterType="hashmap">
+		select 
+			count(*)
+		from kp_home_config t
+		 where 1=1
+		<if test="homeName != null and homeName!=''">
+		  and t.home_name like '%${homeName}%' 
+		</if>
+		<if test="platType != null and platType != ''">
+		  and t.plat_type = #{platType}
+		</if>
+		<if test="webOpsition != null and webOpsition != ''">
+		  and t.web_opsition = #{webOpsition}
+		</if>
+	</select>
+
+	<!-- 添加首页参数配置 -->
+	<insert id="addHomeConfig" useGeneratedKeys="true"
+	keyProperty="homeId" parameterType="com.kaipai.ck.model.homeconfig.HomeConfig">
+		insert into
+		kp_home_config(home_name,create_tm,state,plat_type,web_opsition)
+		values(
+		#{homeName,jdbcType=VARCHAR},
+		SYSDATE(),
+		#{state,jdbcType=VARCHAR},
+		#{platType,jdbcType=VARCHAR},
+		#{webOpsition,jdbcType=CHAR}
+		)
+	</insert>
+
+	<!-- 修改首页参数配置 -->
+	<update id="updateHomeConfig" parameterType="com.kaipai.ck.model.homeconfig.HomeConfig">
+		update kp_home_config set
+		home_name = #{homeName,jdbcType=VARCHAR},
+		plat_type = #{platType,jdbcType=VARCHAR},
+		web_opsition = #{webOpsition,jdbcType=VARCHAR}
+		where home_id = #{homeId,jdbcType=BIGINT}
+	</update>
+
+	<!-- 修改首页参数配置状态 -->
+	<update id="updateStateHomeConfig" parameterType="com.kaipai.ck.model.homeconfig.HomeConfig">
+		update kp_home_config set state = #{state} where home_id = #{homeId,jdbcType=BIGINT}
+	</update>
+	
+	<!-- 添加首页参数配置明细 -->
+	<insert id="addHomeConfigDetail" parameterType="com.kaipai.ck.model.homeconfig.HomeConfigDetail">
+		insert into
+		kp_home_config_dtl(home_id,view_type,`val`,icon_url,create_tm
+		,open_type,open_url,state)
+		values
+		(
+		#{homeId,jdbcType=BIGINT},
+		#{viewType,jdbcType=VARCHAR},
+		#{val,jdbcType=VARCHAR},
+		#{iconUrl,jdbcType=VARCHAR},
+		SYSDATE(),
+		#{openType,jdbcType=VARCHAR},
+		#{openUrl,jdbcType=VARCHAR},
+		#{state,jdbcType=VARCHAR}
+		)
+	</insert>
+	
+	
+	<!-- 删除首页参数配置明细 -->
+	<update id="delHomeConfigDetailByHomeId">
+		 update kp_home_config_dtl set is_del = '1' where home_id = #{homeId,jdbcType=BIGINT}
+	</update>
+	
+
+</mapper>

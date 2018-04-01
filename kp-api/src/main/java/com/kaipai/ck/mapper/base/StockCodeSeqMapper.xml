@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kaipai.ck.mapper.base.StockCodeSeqMapper">
+	<select id="findStockCodeSeq" resultType="long">
+		select
+			cur_code
+		from
+			kp_stock_code_his
+		where
+			prefix_code = #{prefixCode}
+	</select>
+	
+	<update id="updateStockCodeInc">
+		update
+			kp_stock_code_his
+		set
+			cur_code = cur_code + 1
+		where
+			prefix_code = #{prefixCode}
+	</update>
+
+</mapper>

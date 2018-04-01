@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kaipai.ck.mapper.auth.UserAuthInfoMapper">
+
+    <!-- 身份认证列 -->
+	<sql id="userAuthInfoColumn">
+	  	user_id as userId,
+	  	auth_name as authName,
+	  	auth_no as authNo,
+	  	auth_pic1_url as authPic1Url,
+	  	auth_pic2_url as authPic2Url,
+	  	auth_state as authState,
+	  	auth_reson as authReson,
+	  	auth_tm as authTm,
+	  	auth_user_id as authUserId,
+	  	auth_user_name as authUserName,
+	  	create_tm as createTm,
+	  	annual_income_code as annualIncomeCode,
+	  	asset_code as assetCode
+	</sql>
+    
+	<!-- 获取身份认证列表 -->
+     <select id="getUserAuthInfoList" parameterType="map" resultType="com.kaipai.ck.model.auth.UserAuthInfo">
+        
+        SELECT <include refid="userAuthInfoColumn" /> FROM kp_user_auth_info 
+        WHERE 1=1
+        <if test="authName != null and authName != ''">
+        	AND auth_name like CONCAT('%',#{authName},'%')
+        </if>
+        <if test="authNo != null and authNo != ''">
+        	AND auth_no like CONCAT('%',#{authNo},'%')
+        </if>
+        <if test="authState != null and authState != ''">
+        	AND auth_state = #{authState}
+        </if>
+        <if test="startCreateTm != null and startCreateTm != ''">
+        	AND create_tm  >= #{startCreateTm}
+        </if>
+         <if test="endCreateTm != null and endCreateTm !=''">
+             AND create_tm  <![CDATA[<=]]> #{endCreateTm}
+         </if>
+        ORDER BY create_tm asc
+        limit #{pageIndex},#{pageSize}
+    </select>
+    <!-- 获取身份认证总数 -->
+     <select id="getUserAuthInfoCount" parameterType="map" resultType="int">
+        
+        SELECT COUNT(1) FROM kp_user_auth_info 
+        WHERE 1=1
+        <if test="authName != null and authName != ''">
+        	AND auth_name like CONCAT('%',#{authName},'%')
+        </if>
+        <if test="authNo != null and authNo != ''">
+        	AND auth_no like CONCAT('%',#{authNo},'%')
+        </if>
+        <if test="authState != null and authState != ''">
+        	AND auth_state = #{authState}
+        </if>
+        <if test="startCreateTm != null and startCreateTm != ''">
+        	AND create_tm  >= #{startCreateTm}
+        </if>
+         <if test="endCreateTm != null and endCreateTm !=''">
+             AND create_tm  <![CDATA[<=]]> #{endCreateTm}
+         </if>
+    </select>
+    
+    <!-- 根据用户ID获取明细 -->
+    <select id="getUserAuthInfoDetail" parameterType="java.lang.String" resultType="com.kaipai.ck.model.auth.UserAuthInfo">
+    	SELECT <include refid="userAuthInfoColumn" /> FROM kp_user_auth_info
+    	WHERE user_id = #{userId}
+    </select>
+    
+    <!-- 根据用户ID 更新 -->
+    <update id="updateUserAuthInfo" parameterType="com.kaipai.ck.model.auth.UserAuthInfo">
+    	UPDATE kp_user_auth_info
+    	<set>
+    		<if test="authReson != null and authReson !=''">
+    			auth_reson = #{authReson},
+    		</if>
+    		<if test="authTm != null and authTm != ''">
+        		 auth_tm = #{authTm},
+        	</if>
+        	<if test="authState != null and authState != ''">
+        		 auth_state = #{authState},
+        	</if>
+        	<if test="authUserId != null and authUserId != ''">
+        		 auth_user_id = #{authUserId},
+        	</if>
+        	<if test="authUserName != null and authUserName != ''">
+        		 auth_user_name = #{authUserName},
+        	</if>
+    	</set>
+    	WHERE user_id = #{userId}
+    </update>
+     
+  
+</mapper>

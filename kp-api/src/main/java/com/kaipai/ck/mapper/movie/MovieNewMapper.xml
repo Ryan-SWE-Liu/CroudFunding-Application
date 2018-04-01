@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kaipai.ck.mapper.movie.MovieNewMapper">
+
+
+	<!-- 电影项目公告动态列表 -->
+	<select id="findMovieNews" resultType="com.kaipai.ck.model.movie.MovieNewModel" parameterType="hashmap">
+		select
+			t.mov_news_id as movNewsId,
+			t.pub_usr_id as pubUsrId,
+        	t.mov_no as movNo,
+        	t.news_dt_type as newsDtType,
+        	s.name as newsDtTypeName,
+        	t.news_type as newsType,
+        	t.news_title as newsTitle,
+        	DATE_FORMAT(t.news_tm,'%Y-%m-%d %H:%i:%s') as newsTm,
+        	t.content as content,
+        	t.status as status
+		 from kp_movie_news t
+		 left join (select code,name from system_domain_value where domain_code = 'MV_NEWS_DT_TYPE') s
+		 on t.news_dt_type = s.code
+		where 1=1 
+		<if test="newsType != null and newsType != ''">
+			and t.news_type = #{newsType}
+		</if>
+		<if test="newsDtType != null and newsDtType != ''">
+			and t.news_dt_type = #{newsDtType}
+		</if>
+		<if test="movNo != null and movNo != ''">
+			and t.mov_no = #{movNo}
+		</if>
+		order by t.news_tm desc
+		<if test="index != null and index != ''">
+			limit #{index},#{size}
+		</if>
+		
+	</select>
+	
+	<!-- 电影项目公告动态详情 -->
+	<select id="findMovieNew" resultType="com.kaipai.ck.model.movie.MovieNewModel" parameterType="long">
+		select
+			pub_usr_id as pubUsrId,
+        	mov_no as movNo,
+        	news_dt_type as newsDtType,
+        	news_type as newsType,
+        	news_title as newsTitle,
+        	news_tm as newsTm,
+        	content as content,
+        	status as status
+		 from kp_movie_news t
+		where t.mov_news_id=#{movNewsId}
+	</select>
+	
+	<!-- 最新的一条电影项目公告动态详情 -->
+	<select id="findMovieNewThisNew" resultType="com.kaipai.ck.model.movie.MovieNewModel" parameterType="hashmap">
+		select
+			pub_usr_id as pubUsrId,
+        	mov_no as movNo,
+        	news_dt_type as newsDtType,
+        	news_type as newsType,
+        	news_title as newsTitle,
+        	news_tm as newsTm,
+        	content as content,
+        	status as status
+		 from kp_movie_news t
+		 where t.news_type = #{newsType}
+		 and t.mov_no = #{movNo}
+		order by t.news_tm desc
+		limit 0,1
+	</select>
+	
+	<insert id="insertMovieNew"  parameterType="com.kaipai.ck.model.movie.MovieNewModel">
+		INSERT INTO kp_movie_news (
+        	pub_usr_id ,
+        	mov_no ,
+        	news_dt_type ,
+        	news_type ,
+        	news_title ,
+        	news_tm ,
+        	content ,
+        	status 
+        ) VALUES (
+        	#{pubUsrId,jdbcType=BIGINT} ,
+        	#{movNo,jdbcType=VARCHAR} ,
+        	#{newsDtType,jdbcType=VARCHAR} ,
+        	#{newsType,jdbcType=VARCHAR} ,
+        	#{newsTitle,jdbcType=VARCHAR} ,
+        	#{newsTm} ,
+        	#{content,jdbcType=VARCHAR} ,
+        	#{status,jdbcType=VARCHAR} 
+        )
+	</insert>
+	
+	<update id="updateMovieNew" parameterType="com.kaipai.ck.model.movie.MovieNewModel">
+		UPDATE kp_movie_news SET
+	        pub_usr_id = #{pubUsrId,jdbcType=BIGINT} ,
+	        mov_no = #{movNo,jdbcType=VARCHAR} ,
+	        news_dt_type = #{newsDtType,jdbcType=VARCHAR} ,
+	        news_type = #{newsType,jdbcType=VARCHAR} ,
+	        news_title = #{newsTitle,jdbcType=VARCHAR} ,
+	        news_tm = #{newsTm,jdbcType=TIMESTAMP} ,
+	        content = #{content,jdbcType=VARCHAR} 
+        WHERE 
+	        mov_news_id = #{movNewsId} 
+	</update>
+	
+	
+	
+    <delete id="deleteMovieNew" parameterType="java.lang.Long">
+    <![CDATA[
+        DELETE FROM kp_movie_news WHERE
+        mov_news_id = #{movNewsId} 
+    ]]>
+    </delete>
+    
+    
+</mapper>

@@ -1,0 +1,696 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kaipai.ck.mapper.login.LoginMapper">
+
+
+	<!-- 查询手机号是否存在 -->
+	<select id="findMobilIsHave" resultType="int" parameterType="String" >
+		select 
+		count(0)
+		from kp_users 
+		where mobile=#{mobile} or user_name = #{mobile}
+	</select>
+	
+	<select id="findUserIdByMobile" resultType="String" parameterType="String" >
+		select 
+			user_id
+		from 
+			kp_users 
+		where 
+			mobile=#{mobile}
+	</select>
+
+
+
+	<!-- App登录 -->
+	<select id="appLoginUserInfo" resultType="com.kaipai.ck.model.login.AppUserModel">
+	select
+		  ku.user_id as userId,
+		  ku.user_name as userName,
+		  ku.user_type as userType,
+		  ku.kp_no as kpNo,
+		  ku.auth_flg as authFlg,
+		  ku.nick_name as nickName,
+		  ku.user_state as userState,
+		  ku.source as source,
+		  ku.city_code  as cityCode,
+		  ku.mobile  as mobile,
+		  ku.icon_url  as iconUrl,
+		  ku.net_sign_flg  as netSignFlg,
+		  date_format(ku.reg_tm,'%Y-%m-%d')  as regTm,
+		  ad.name as cityName,
+		  kui.sex_code as sex,
+		  kui.figure_code as figureCode,
+		  kui.skin_code as skinCode,
+		  kui.company,
+		  kui.age as age,
+		  kui.height,
+		  kui.weight,
+		  kui.self_info as selfInfo,
+		  kui.email as email,
+		  ad.parentCode as provienceCode,
+		  (select adt.name from address adt where adt.code=ad.parentCode  and adt.`level`=1) as provinceName
+		  
+		from (select * from kp_users where (user_name=#{userName} or mobile = #{userName})
+		<if test="userPwd != null and userPwd !='' ">
+			and user_pwd=#{userPwd}
+		</if>
+		 ) ku
+		left join (select code,name,parentCode from address where `level` = 2)  ad on ku.city_code=ad.code
+		left join kp_user_info kui on ku.user_id = kui.user_id
+		order by ku.reg_tm
+		limit 1
+	</select>
+
+	<!-- 查询用户手机号 -->
+	<select id="findUserMobileByUserId" resultType="com.kaipai.ck.model.login.LoginModel" parameterType="long" >
+		select 
+		ku.mobile ,
+		bi.bank_name bankName,
+		bi.name recName,
+		bi.bank_no bankNo
+		from kp_users ku left join kp_user_bank_info bi on ku.user_id = bi.user_id
+		where ku.user_id=#{userId}
+		order by bi.create_tm limit 1
+	</select>
+	
+	<!-- 修改手机号 -->
+	<update id="updateUserMobile" parameterType="map">
+		update kp_users set mobile = #{mobile} where user_id = #{userId}
+	</update>
+	
+	<!-- 登录 -->
+	<select id="find2Login" resultType="com.kaipai.ck.model.login.LoginModel">
+		select 
+		ku.user_id as userId,
+		ku.kp_no as kpNo,
+		ku.nick_name as nickName,
+		ku.user_name as userName,
+		ku.source,
+		ku.mobile,
+		ku.user_state as state,
+		ku.icon_url as iconUrl,
+		ku.user_pwd as pwd,
+		bi.bank_name bankName,
+		bi.name recName,
+		bi.bank_no bankNo,
+		ub.bind_id openid
+		from kp_users ku left join kp_user_bank_info bi
+		on ku.user_id = bi.user_id
+		left join kp_user_bounds ub on ku.user_id = ub.user_id and ub.bind_type = 'WX'
+		where 1=1
+		<if test="userName != null and userName != ''">
+			and ( ku.user_name=#{userName} or ku.mobile = #{userName} )
+		</if>
+		<if test="userPwd != null and userPwd != ''">
+		 	and ku.user_pwd=#{userPwd}
+		</if>
+		limit 0,1
+		
+	</select>
+	
+	<!-- 用户名检测 -->
+	<select id="findUserName" resultType="com.kaipai.ck.model.login.LoginModel">
+		select 
+		ku.user_id as userId,
+		ku.kp_no as kpNo,
+		ku.nick_name as nickName,
+		ku.user_name as userName,
+		ku.source,
+		ku.mobile,
+		ku.icon_url as iconUrl,
+		ku.user_pwd as pwd
+		from kp_users ku 
+		where ku.user_name=#{userName}
+		or ku.mobile = #{userName}
+	</select>
+	
+	<!-- 判断手机号码是否已经注册 -->
+	<select id="findMobile" resultType="com.kaipai.ck.model.login.LoginModel" parameterType="com.kaipai.ck.model.login.LoginModel">
+		select 
+		user_id as userId
+		from kp_users ku 
+		where (ku.user_name=#{mobile} or ku.mobile = #{mobile})
+		<if test="userId != null and userId != ''">
+			<![CDATA[ and ku.user_id <> #{userId} ]]>
+		</if>
+	</select>
+	
+	<select id="findUserIdByParam" resultType="String">
+		select 
+		user_id as userId
+		from kp_user_bounds ku 
+		where 1=1 
+		<if test="bindType != null and bindType != ''">
+			and ku.bind_type = #{bindType}
+		</if>
+		<if test="userId != null and userId != ''">
+			and ku.user_id=#{userId}
+		</if>
+		<if test="bindId != null and bindId != ''">
+			and ku.bind_id=#{bindId}
+		</if>
+	</select>
+	<select id="findUserIdByBoundId" resultType="long" parameterType="String">
+		select 
+			user_id as userId
+		from 
+			kp_user_bounds ku 
+		where 
+			ku.bind_id=#{bindId}
+	</select>
+	
+	<!-- 查询会员号 -->
+	<select id="queryKpNoByuserId" parameterType="String" resultType="String">
+		select kp_no from kp_users where user_id = #{userId}
+	</select>
+	
+
+<insert id="createUserBound" parameterType="com.kaipai.ck.model.login.UserBoundModel">
+		insert into kp_user_bounds(
+			user_id,
+			create_tm,
+			bind_id,
+			bind_type,
+			union_id,
+			bind_nick_name,
+			bind_icon_url
+		) values(
+		    #{userId},
+			sysdate(),
+			#{bindId},
+			#{bindType},
+			#{unionId},
+			#{bindNickName},
+			#{bindIconUrl}		
+		);
+	</insert>
+
+
+	<select id="findUserBoundByBindId" parameterType="hashmap" resultType="com.kaipai.ck.model.login.UserBoundModel">
+		select user_id as userId,bind_id as bindId,bind_type as bindType,union_id as unionId
+		 from kp_user_bounds kp where kp.bind_id=#{bindId} and kp.bind_type = #{bindType}
+	</select>
+	
+	
+	<!-- 注册 -->
+	<insert id="create2Register" parameterType="com.kaipai.ck.model.login.LoginModel"  useGeneratedKeys="true" keyProperty="userId">
+	  <!--  <selectKey resultType="_long" keyProperty="id" order="AFTER">
+	    select @@IDENTITY as id
+	  </selectKey> -->
+		insert into kp_users(
+			user_name,
+			user_type,
+			kp_no,
+			nick_name,
+			user_state,
+			source,
+			user_pwd,
+			mobile,
+			icon_url,
+			reg_tm,
+			is_invited,
+			is_bound
+		)values(
+			#{userName},
+			'U',
+			#{kpNo},
+			#{nickName},
+			'1',
+			#{source},
+			#{pwd},
+			#{mobile},
+			#{iconUrl},
+			sysdate(),
+			#{isInvited},
+			#{isBound}
+		)
+	</insert>
+	
+	<!-- 插入user_dev -->
+	<insert id="insertUserDev" parameterType="hashmap" >
+		insert into kp_user_devs(
+			user_id,
+			lst_log_tm,
+			ticket_chr,
+			overdue_tm,
+			platform_type
+		)values(
+			#{userId},
+			sysdate(),
+			#{ticket},
+			#{overdueTm},
+			#{platformType}
+		)
+	</insert>
+	
+	<update id="updateUserDevs" parameterType="hashmap">
+		update kp_user_devs ku
+			<set>
+				ku.ticket_chr=#{ticket},
+				ku.overdue_tm=#{overdueTm},
+				ku.platform_type=#{platformType},
+				ku.dev_param=#{devParam},
+				ku.cur_version=#{curVersion}
+			</set>
+			where ku.user_id=#{userId} and ku.platform_type=#{platformType}
+	</update>
+	
+	
+	<!-- 查询用户令牌信息是否已存在 -->
+	<select id="findUserDev" parameterType="hashmap" resultType="int">
+		select count(*) from kp_user_devs kp where kp.user_id=#{userId}
+			<if test="platformType != null and platformType != ''">
+				and kp.platform_type = #{platformType}
+			</if>
+	</select>
+	
+	
+	<!-- 查询用户令牌信息是否已存在 -->
+	<select id="findUserDevByUserId" parameterType="hashmap" resultType="com.kaipai.ck.model.login.UserDevModel">
+		select 	user_id as userId,
+			lst_log_tm  as lstLogTm,
+			ticket_chr as ticketChr,
+			overdue_tm as overDueTm ,cur_version  as curVersion from kp_user_devs kp 
+			where kp.user_id=#{userId}
+			<if test="platformType != null and platformType != ''">
+				and kp.platform_type = #{platformType}
+			</if>
+	</select>
+	
+	<select id="findUserByUserId" parameterType="string" resultType="com.kaipai.ck.model.login.LoginModel">
+		select 
+		ku.user_id as userId,
+		ku.nick_name as nickName,
+		ku.icon_url as iconUrl,
+		ku.user_name as userName,
+		ku.mobile as mobile,
+		ku.city_code as cityCode,
+		ku.kp_no as kpNo,
+		ku.is_bound isBound,
+		ub.bind_id as openid
+		from kp_users ku
+		left join kp_user_bounds ub on ku.user_id = ub.user_id and ub.bind_type = 'WX'
+		where ku.user_id = #{userId} and ku.user_state='1'
+		limit 1
+	</select>
+	
+	<update id="update2register" parameterType="hashmap">
+		update kp_users ku
+			<set>
+				ku.user_pwd=#{psw},
+				ku.user_name=#{phoneNo},
+				ku.mobile=#{phoneNo}
+				<if test="isBound != null and isBound !=''">
+				,ku.is_bound = #{isBound}
+				</if>
+			</set>
+			where ku.user_id=#{userId}
+	</update>
+
+	
+	<!-- app修改个人资料 -->
+	<update id="updateAppUser" parameterType="com.kaipai.ck.model.login.KpUserInfo">
+		update kp_users ku
+			<set>
+				<if test="iconUrl != null">
+					ku.icon_url=#{iconUrl},
+				</if>
+				<if test="nickName != null">
+					ku.nick_name=#{nickName},
+				</if>
+				<if test="cityCode != null">
+					ku.city_code=#{cityCode}
+				</if>
+			</set>
+			where ku.user_id=#{userId}
+	</update>
+	
+	<!-- app修改个人资料 -->
+	<!-- 添加用户 -->
+	<insert id="createKpUserInfo" useGeneratedKeys="true" 
+	keyProperty="userId" parameterType="com.kaipai.ck.model.login.KpUserInfo">
+		insert into 
+		kp_user_info(user_id,age,create_tm,height,weight,sex_code,figure_code
+		,self_info,email,company,skin_code,birthday,profession)
+		values(
+		#{userId,jdbcType=BIGINT},
+		#{age,jdbcType=VARCHAR},
+		SYSDATE(),
+		#{height,jdbcType=VARCHAR},
+		#{weight,jdbcType=VARCHAR},
+		#{sexCode,jdbcType=VARCHAR},
+		#{figureCode,jdbcType=VARCHAR},
+		#{selfInfo,jdbcType=VARCHAR},
+		#{email,jdbcType=VARCHAR},
+		#{company,jdbcType=VARCHAR},
+		#{skinCode,jdbcType=VARCHAR},
+		#{birthday,jdbcType=VARCHAR},
+		#{profession,jdbcType=VARCHAR}
+		)
+	</insert>
+	
+	<select id="isUserExists" parameterType="String" resultType="int">
+		select count(0) from kp_user_info where user_id=#{userId}
+	</select>
+	
+	
+	<update id="updateKpUserInfo" parameterType="com.kaipai.ck.model.login.KpUserInfo">
+	 update kp_user_info
+	 	<set>
+		 	<if test="birthday != null">
+		 		birthday = #{birthday},
+		 	</if>
+		 	<if test="sexCode != null">
+		 		sex_code = #{sexCode},
+		 	</if>
+			<if test="selfInfo != null">
+				self_info = #{selfInfo},
+			</if>
+		 	<if test="profession != null">
+		 		profession = #{profession}
+		 	</if>
+	 	</set>
+	 where user_id = #{userId}
+	</update>
+	<update id="updateAppUserPasswd" parameterType="map">
+		update kp_users ku set ku.user_pwd=#{newPasswd}
+			where ku.user_id=#{userId} and ku.user_pwd = #{oldPasswd}
+	</update>
+	
+	
+	<delete id="delAppUserInfo" parameterType="long">
+	 	delete from kp_user_info where user_id = #{userId}
+	</delete>
+	
+	<!-- 更改认证状态 -->
+	<update id="updateAuthStatus" parameterType="map">
+		update kp_users set auth_flg = #{authStatus} where user_id = #{userId}
+	</update>
+	
+	
+	
+	
+<!-- ################################用户中心新加内容########################################################## -->
+<!-- 创建用户 -->
+	<insert id="createUser" parameterType="com.kaipai.ck.model.user.UserLoginVo" useGeneratedKeys="true" keyProperty="userId">
+		insert into kp_users(
+			user_name,
+			user_type,
+			kp_no,
+			nick_name,
+			user_state,
+			source,
+			user_pwd,
+			mobile,
+			icon_url,
+			reg_tm
+		)values(
+			#{username},
+			#{userType},
+			#{kpNo},
+			#{nickname},
+			'1',
+			#{platform},
+			#{password},
+			#{mobile},
+			#{iconUrl},
+			SYSDATE())
+	</insert>
+<!-- 	用户登录 -->
+	<select id="userLogin" resultType="com.kaipai.ck.model.user.UserLoginVo">
+		select
+			t.user_name as username,
+			t.nick_name as nickname,
+			t.user_id as userId,
+			t.auth_flg as userAuthStatus,
+			t.user_state as userStatus,
+			t.city_code as area,
+			t.icon_url as iconUrl,
+			t.user_type as userType,
+			t.mobile as mobile
+		from
+			kp_users t
+		where 
+			(t.user_name = #{username} or t.mobile = #{username}) and t.user_state = '1'
+			<if test="password != null and password != ''">
+				and upper(t.user_pwd) = #{password}
+			</if>
+		limit 1
+	</select>
+<!-- 	用户信息user_info -->
+	<select id="findUserInfo" resultType="com.kaipai.ck.model.user.UserLoginVo">
+		select 
+			t.sex_code as sex,
+			t.user_id as userId,
+			t.self_info as selfInfo,
+			t.birthday as birthday,
+			t.id_name as realName,
+			t.id_card as idCardNo,
+			t.company as companyCode
+		from
+			kp_user_info t
+		where
+			t.user_id = #{userId}
+	</select>
+	
+	<select id="findUser" resultType="com.kaipai.ck.model.user.UserLoginVo">
+		select 
+			u.user_name as username,
+			u.nick_name as nickname,
+			u.city_code as area,
+			u.icon_url as iconUrl,
+			u.user_id as userId,
+			u.user_type as userType,
+			u.mobile as mobile,
+			u.auth_flg as userAuthStatus,
+			u.user_state as userStatus,
+			ui.sex_code as sex,
+			ui.self_info as selfInfo,
+			ui.birthday as birthday,
+			ui.id_name as realname,
+			ui.id_card as idCardNo,
+			ui.company as companyCode,
+			ui.height as height,
+			ui.weight as weight,
+			ui.profession as profession
+		from
+			kp_users u
+		left join 
+			kp_user_info ui on u.user_id = ui.user_id
+		where
+			u.user_id = #{userId} and u.user_state = '1'
+		
+	</select>
+	
+<!-- 	修改用户名 -->
+	<update id="userUpdateUsername">
+		update
+			kp_users
+		set
+			user_name = #{username}
+		where
+			user_id = #{userId} and user_state = '1'
+	</update>
+<!-- 	头像，呢称，地区 -->
+	<update id="updateUser" parameterType="com.kaipai.ck.model.user.UserLoginVo">
+		update
+			kp_users
+		<set>
+			<if test="username != null and username != ''">
+				user_name = #{username},
+			</if>
+			<if test="mobile != null and mobile != ''">
+				mobile = #{mobile},
+			</if>
+			<if test="password != null and password != ''">
+				user_pwd = #{password},
+			</if>
+			<if test="isBound != null and isBound != ''">
+				is_bound = #{isBound},
+			</if>
+			<if test="iconUrl != null and iconUrl != ''">
+				icon_url = #{iconUrl},
+			</if>
+			<if test="nickname != null and nickname != ''">
+				nick_name = #{nickname},
+			</if>
+			<if test="area != null and area != ''">
+				city_code = #{area},
+			</if>
+			<if test="userType != null and userType != ''">
+				user_type = #{userType}
+			</if>
+		</set>
+		where
+			user_id = #{userId} and user_state = '1'
+	</update>
+	
+<!-- 	出生年月，性别，个性签名，真实姓名，身份证号 在kp_user_info表 -->
+	<update id="updateUserInfo" parameterType="com.kaipai.ck.model.user.UserLoginVo">
+		update
+			kp_user_info
+		<set>
+			<if test="birthday != null">
+				birthday = #{birthday},
+			</if>
+			<if test="sex != null and sex != ''">
+				sex_code = #{sex},
+			</if>
+			<if test="selfInfo != null and selfInfo != ''">
+				self_info = #{selfInfo},
+			</if>
+			<if test="realname != null and realname != ''">
+				id_name = #{realname},
+			</if>
+			<if test="idCardNo != null and idCardNo != ''">
+				id_card = #{idCardNo},
+			</if>
+			<if test="height != null and height != ''">
+				height = #{height},
+			</if>
+			<if test="weight != null and weight != ''">
+				weight = #{weight},
+			</if>
+			<if test="profession != null and profession != ''">
+				profession = #{profession}
+			</if>
+		</set>
+		where
+			user_id = #{userId}
+	</update>
+	
+	<insert id="insertUserInfo" parameterType="com.kaipai.ck.model.user.UserLoginVo">
+		insert into 
+			kp_user_info
+			(`user_id`,`birthday`,`sex_code`,`self_info`,`id_name`,`id_card`,`create_tm`)
+		values
+			(#{userId},#{birthday},#{sex},#{selfInfo},#{realname},#{idCardNo},now())
+	</insert>
+	
+	<select id="isExists" parameterType="com.kaipai.ck.model.user.UserLoginVo" resultType="int">
+		select
+			count(0)
+		from
+			kp_user_info
+		where 
+			user_id = #{userId}
+	</select>
+<!-- 修改密码 -->
+	<update id="updateUserPassword">
+		update
+			kp_users
+		set
+			user_pwd = #{newPassword}
+		where user_id = #{userId} and user_pwd = #{oldPassword} and user_state = '1'
+	</update>
+<!-- 	重置密码 -->
+	<update id="resetPassword">
+		update
+			kp_users
+		set
+			user_pwd = #{password}
+		where (user_name = #{username} or mobile = #{username}) and user_state = '1'
+	</update>
+<!-- 	用户审核 -->
+	<update id="authUserStatus">
+		update
+			kp_users
+		set
+			auth_flg = #{state}
+		where
+			user_id = #{userId}
+	</update>
+	
+	
+	
+	<update id="updateUserState">
+		update
+			kp_users
+		set
+			user_state = #{userState}
+		where
+			user_id = #{userId}
+	</update>
+	
+	
+	<update id="updateUserBoundByBindId">
+		update
+			kp_user_bounds
+		set
+			user_id = #{userId}
+		where
+			bind_id = #{bindId}
+	</update>
+	<!-- 更新unionid -->
+	<update id="updateBoundUnionId">
+		update
+			kp_user_bounds
+		set
+			union_id = #{unionId}
+		where
+			user_id = #{userId}
+	</update>
+	
+	<!-- 更新bindId -->
+	<update id="updateBoundIdByUnionId">
+		update
+			kp_user_bounds
+		set
+			bind_id = #{bindId}
+		where
+			union_id = #{unionId}
+	</update>
+	
+	
+	<!-- 微信app第三方登录 -->
+	<select id="findBendIdInBoundByWX" resultType="com.kaipai.ck.model.login.UserBoundModel">
+		select 
+			bind_id as bindId,
+			user_id as userId
+		from 
+			kp_user_bounds
+		where
+			union_id = #{unionId}
+	</select>
+	
+	<!-- 微信app第三方登录 -->
+	<select id="findUserIdInBoundByWX" resultType="String">
+		select 
+			user_id
+		from 
+			kp_user_bounds
+		where
+			bind_type = 'WX' and union_id = #{unionId}
+	</select>
+	<!-- QQ第三方登录 -->
+	<select id="findUserIdInBoundByQQ" resultType="String">
+		select 
+			user_id
+		from 
+			kp_user_bounds
+		where
+			bind_type = 'QQ' and bind_id = #{bindId}
+	</select>
+	
+	<select id="findUserBoundByUserId" resultType="com.kaipai.ck.model.login.UserBoundModel">
+		select
+			user_id as userId,
+			bind_id as bindId,
+			bind_type as bindType,
+			union_id as unionId
+		from
+			kp_user_bounds
+		where
+			user_id = #{userId}
+	</select>
+	
+	
+	
+	
+	
+	
+	
+</mapper>

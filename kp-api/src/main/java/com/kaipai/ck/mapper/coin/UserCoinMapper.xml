@@ -1,0 +1,281 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kaipai.ck.mapper.coin.UserCoinMapper">
+	<insert id="createUserCoin" parameterType="com.kaipai.ck.model.coins.UserCoinsModel">
+		 INSERT INTO bi_user_coins (
+        	user_id,
+        	coin_code,
+        	val 
+        ) VALUES (
+        	#{userId,jdbcType=BIGINT},
+        	#{coinCode,jdbcType=VARCHAR},
+        	#{val,jdbcType=DOUBLE} 
+        )
+	</insert>
+	
+	<select id="findCoinModelByUserIdAndCoinCode" parameterType="com.kaipai.ck.model.coins.UserCoinsModel" resultType="com.kaipai.ck.model.coins.UserCoinsModel">
+		select
+			user_id as userId,
+        	coin_code as coinCode,
+        	create_tm as createTm,
+        	val as val
+		from
+			bi_user_coins
+		where
+			user_id=#{userId} and coin_code = #{coinCode} and is_del = '0'
+	</select>
+	
+	<select id="findUserCoinsByUserId" parameterType="long" resultType="com.kaipai.ck.model.coins.UserCoinsModel">
+		select
+			user_id as userId,
+        	coin_code as coinCode,
+        	create_tm as createTm,
+        	val as val
+		from
+			bi_user_coins
+		where
+			user_id=#{userId} and is_del = '0'
+	</select>
+	
+	<!-- 增加（充值） -->
+	<update id="addUserCoinVal">
+		insert into
+			bi_user_coins(`user_id`,`coin_code`,`val`)
+		values
+			(#{userId},#{coinCode},#{val})
+		on duplicate key update
+			val = val + #{val}
+	</update>
+	<!-- 消费 -->
+	<update id="subUserCoinVal">
+		update
+			bi_user_coins
+		set
+			val = val - #{val}
+		where
+			user_id=#{userId} and coin_code = #{coinCode} and is_del = '0' and val >= #{val}
+	</update>
+	
+	<select id="checkUserCoinVal" resultType="long">
+		select
+			count(0)
+		from 
+			bi_user_coins
+		where 
+			user_id=#{userId} and coin_code = #{coinCode} and is_del = '0' and val >= #{val}
+	</select>
+	
+	<insert id="createUserCoinPayHis" parameterType="com.kaipai.ck.model.coins.UserCoinPayHisModel">
+		INSERT INTO bi_user_coins_his (
+        	coin_sn_no,
+        	user_id,
+        	coin_code,
+        	busi_code,
+        	op_code,
+        	val 
+        ) VALUES (
+        	#{snNo,jdbcType=VARCHAR} ,
+        	#{userId,jdbcType=BIGINT} ,
+        	#{coinCode,jdbcType=VARCHAR} ,
+        	#{busiCode,jdbcType=VARCHAR} ,
+        	#{opCode,jdbcType=TIMESTAMP} ,
+        	#{val,jdbcType=DOUBLE} 
+        )
+	</insert>
+	
+	<select id="findUserCoinPayHisByUserId" parameterType="map" resultType="com.kaipai.ck.model.coins.UserCoinPayHisModel">
+		select
+			coin_sn_no as snNo,
+        	user_id as userId,
+        	coin_code as coinCode,
+        	op_tm as opTm,
+        	busi_code as busiCode,
+        	op_code as opCode,
+        	val as val
+		from
+			bi_user_coins_his
+		<where>
+			user_id = #{userId} and is_del = '0'
+			<if test="lastTm != '' and lastTm != null">
+				and op_tm <![CDATA[<]]> #{lastTm}
+			</if>
+			<if test="coinCode != '' and coinCode != null">
+				and coin_code = #{coinCode}
+			</if>
+			<if test="payType != '' and payType != null">
+				and busi_code = #{payType}
+			</if>
+		</where>
+			
+		order by 
+			op_tm desc
+		limit 
+			<if test="index != '' and index != null">
+				#{index},
+			</if>
+			#{rows}
+			
+	</select>
+	
+	<insert id="createOrUpdateUserCoinAddress" parameterType="com.kaipai.ck.model.coins.UserCoinAddressModel">
+		insert into
+			bi_user_coin_rechar_addr(`user_id`,`coin_code`,`coin_addr`)
+		values
+			(#{userId},#{coinCode},#{address})
+		on duplicate key update
+			coin_addr = #{address}
+	</insert>
+	
+	<select id="getUserCoinAddress" resultType="com.kaipai.ck.model.coins.UserCoinAddressModel">
+		select
+			user_id as userId,
+			coin_code as coinCode,
+			coin_addr as address,
+			create_tm as creatTm,
+			withdraw_addr as withdrawAddress
+		from 
+			bi_user_coin_rechar_addr
+		where
+			user_id = #{userId} and coin_code = #{coinCode} and is_del = '0'
+	</select>
+	
+	<select id="getUserCoinWithdrawAddress" resultType="com.kaipai.ck.model.coins.UserCoinAddressModel">
+		select
+			user_id as userId,
+			coin_code as coinCode,
+			coin_addr as address,
+			create_tm as creatTm
+		from 
+			bi_user_coin_addrs
+		where
+			user_id = #{userId} and coin_code = #{coinCode} and is_del = '0'
+	</select>
+	
+	<update id="updateOrCreateUserCoinWithdrawAddress" parameterType="com.kaipai.ck.model.coins.UserCoinAddressModel">
+		
+		update 
+			bi_user_coin_rechar_addr
+		set
+			withdraw_addr = #{withdrawAddress},
+			update_tm = now()
+		where
+			user_id = #{userId} and coin_code = #{coinCode}
+	</update>
+	
+	<!-- 查找在一个小时内有充值请求的地址 -->
+	<select id="getNeedCheckAddress" resultType="com.kaipai.ck.model.coins.UserCoinAddressModel">
+		select
+			user_id as userId,
+			coin_code as coinCode,
+			coin_addr as address
+		from
+			bi_user_coin_rechar_addr
+		where
+			state = '0' and is_del = '0' and time_to_sec(timediff(now,update_tm))<![CDATA[<]]>3600
+	</select>
+	<!-- 提现记录 -->
+	<insert id="createUserCoinWithdrawHis" parameterType="com.kaipai.ck.model.coins.UserCoinWithdrawRecodeModel">
+		insert into
+			bi_withdraw_coin_his(user_id,coin_code,coin_amt,coin_addr,fee,state,remark,`type`,req_tm)
+		values
+			(#{userId},#{coinCode},#{value},#{address},#{fee},#{state},#{txid},#{type},now())
+	</insert>
+	
+	<select id="findUserCoinWithdrawRecode" parameterType="map" resultType="com.kaipai.ck.model.coins.UserCoinWithdrawRecodeModel">
+		select
+			user_id as userId,
+			coin_code as coinCode,
+			coin_amt as value,
+			coin_addr as address,
+			state as state,
+			remark as txid,
+			req_tm as createTm,
+			fee as fee,
+			`type` as type,
+			id as recordId
+		from
+			bi_withdraw_coin_his
+		where
+			user_id=#{userId}
+			<if test="lastId != null and lastId != ''">
+				and id <![CDATA[<]]> #{lastId}
+			</if>
+			<if test = "type != null and type != ''">
+				and `type`=#{type}
+			</if>
+			<if test="coinCode != null and coinCode != ''">
+				and coin_code = #{coinCode}
+			</if>
+		order by 
+			id desc
+		limit
+			<if test="index != null and index != ''">
+				#{index},
+			</if>
+			#{rows}
+	</select>
+	
+	<select id="findRechargeRecordByTxid" resultType="long">
+		select 
+			count(0) 
+		from 
+			bi_withdraw_coin_his 
+		where 
+			type="RECHARGE" and coin_addr = #{address} and remark = #{txid}
+	</select>
+	
+	<update id="updateTest" parameterType="string">
+		update kp_users set reg_tm = now() where user_id = #{userId};
+	</update>
+	
+	<select id="findAnsAddrsss" resultType="string">
+		select 
+			address 
+		from 
+			bi_ans_address_pool
+		where
+			is_use = '0'
+		limit 1
+	</select>
+	
+	<update id="updateAnsAddressPool" parameterType="string">
+		update 
+			bi_ans_address_pool
+		set 
+			is_use = '1',
+			update_tm = now()
+		where
+			address=#{address} and is_use = '0'
+	</update>
+	
+	<update id="updateCoinParseRecode">
+		insert into
+			bi_coin_parse_record(`coin_code`,`block_count`,`update_tm`) values(#{coinCode},#{blockCount},now())
+		on duplicate key update
+			block_count = #{blockCount},
+			update_tm = now()
+	</update>
+	
+	<select id="findCoinParseRecode" resultType="int" parameterType="string">
+		select
+			block_count
+		from 
+			bi_coin_parse_record
+		where 
+			coin_code = #{coinCode}
+	</select>
+	
+	<select id="findAllUserAddress" resultType="com.kaipai.ck.model.coins.UserCoinAddressModel" parameterType="string">
+		select
+			user_id as userId,
+			coin_code as coinCode,
+			coin_addr as address
+		from
+			bi_user_coin_rechar_addr
+		where
+			is_del = '0' and coin_code = #{coinCode}
+	</select>
+	
+</mapper>

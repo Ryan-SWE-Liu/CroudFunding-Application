@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kaipai.ck.mapper.contributiveList.ContributiveMapper">
+	<select id="findContributiveList" resultType="com.kaipai.ck.model.contributiveList.ContributiveModel" parameterType="hashmap">
+		
+		select 
+		A.id,
+		kuc.user_id as userId, 
+		DATE_FORMAT(A.gitTm,'%Y-%c-%d %H:%i')  gitTm,
+		A.contributiveAmount, 
+		A.gitNum,
+		kuc.auth_flg as authFlg,
+		kuc.nick_name as nickName,
+		kuc.icon_url as iconUrl 
+		from (
+		select id, user_id,min(git_tm) gitTm ,sum(ev_amt*git_num) contributiveAmount,sum(git_num) gitNum from kp_user_coll_list
+		where coll_no=#{collNo} and state>0 group by user_id
+		) A INNER JOIN kp_users kuc on kuc.user_id=A.user_id
+		order by A.contributiveAmount desc
+		limit #{pageIndex},#{pageSize}
+		 
+	</select>
+	
+	
+	<select id="getTotalCount" resultType="long" parameterType="hashmap">
+		select count(0) from ( select user_id from kp_user_coll_list
+		where coll_no=#{collNo} and state='1' group by user_id ) t
+	</select>
+	
+	<select id="getCollectionCompanyByCollNoAndCompanyCode" resultType="com.kaipai.ck.model.contributiveList.CollectionCompanyModel" parameterType="hashmap">
+			select 
+				 coll_no as collNo ,
+	             company_code as companyCode,
+	             company_rate as companyRate,
+	             employee_rate as employeeRate,
+	             user_rate as userRate
+			 from kp_coll_company kcc 
+			        		 where 1=1
+		 	and kcc.coll_no=#{collNo} and kcc.company_code=#{companyCode}	
+	</select>
+	
+	
+	<select id="getCollBenfitByBenfitId" resultType="com.kaipai.ck.model.contributiveList.CollectionBenfitModel" parameterType="string">
+			select 
+				coll_no as collNo,coll_ben_id as collBenId,
+				benfit_size as benfitSize,
+				state as state,
+				create_tm as createTm,
+				ev_amt  as evAmt,
+				gift_code as giftCode,
+				gift_vale as giftValue
+			from 
+				kp_coll_benfit kcc 
+			where 1=1 and kcc.coll_ben_id=#{collBenId} 
+	</select>
+
+	
+	<!--  根据订单号获取众筹编号 -->
+	<select id="getCollByOrderNo" resultType="com.kaipai.ck.model.order.OrderCollectionModel" parameterType="hashmap">
+		select  order_no as orderNo,coll_no as collNo,coll_ben_id as collBenId, git_num as gitNum,
+		tranfer_usr_id as tranferUsrId,company_code as companyCode from kp_order_collection koc 
+		 where 1=1
+		 	and koc.order_no=#{orderNo}
+	</select>
+	
+	
+	
+	<!--  根据订单号获取众筹编号 -->
+	<select id="getCollCompany" resultType="com.kaipai.ck.model.order.OrderCollectionModel" parameterType="hashmap">
+		select  order_no as orderNo,coll_no as collNo,coll_ben_id as collBenId, git_num as gitNum from kp_order_collection koc 
+		 where 1=1
+		 	and koc.order_no=#{orderNo}
+	</select>
+	
+			
+	
+	<!-- 用户购买众筹 -->
+	<insert id="saveUserColl" parameterType="com.kaipai.ck.model.contributiveList.UserContributiveModel">
+		insert into kp_user_coll_list
+		(coll_no,coll_ben_id,user_id,git_num,ev_amt,git_tm,state,nick_name,icon_url)
+		values(
+			#{collNo,jdbcType=VARCHAR},
+			#{collBenId,jdbcType=BIGINT},
+			#{userId,jdbcType=BIGINT},
+			#{gitNum,jdbcType=BIGINT},
+			#{evAmt,jdbcType=BIGINT},
+			SYSDATE(),
+			#{state,jdbcType=VARCHAR},
+			#{nickName,jdbcType=VARCHAR},
+			#{iconUrl,jdbcType=VARCHAR}
+		)
+	</insert>
+	
+	<select id="findContributyUserList" resultType="String" parameterType="String">
+		select
+			distinct user_id 
+		from 
+			kp_user_coll_list
+		where 
+			coll_no=#{collNo} and state>0
+	</select>
+	
+	<update id="updateContributeStatus">
+		update
+			kp_user_coll_list
+		set
+			state = #{status}
+		where
+			id = #{id}
+	</update>
+	
+	<select id="findSumContributeInPeriod" resultType="double">
+		select 
+			ifnull(sum(git_num*ev_amt),0)
+		from
+			kp_user_coll_list
+		where
+			git_tm between date(#{startTm}) and date(date_add(date(#{endTm}),interval 1 day))
+			and state > 0
+	</select>
+	
+	
+	
+</mapper>

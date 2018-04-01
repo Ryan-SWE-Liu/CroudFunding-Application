@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kaipai.ck.mapper.ad.AdConfigMapper">
+
+	<insert id="createAdConfig" parameterType="com.kaipai.ck.model.ad.AdConfigModel">
+		insert into kp_ad_config(`type`,`value`,`imgUrl`,`show_tm`,`create_tm`)
+		values(#{type},#{value},#{imgUrl},#{showTm},now())
+	</insert>
+	
+	<update id="updateAdConfig" parameterType="com.kaipai.ck.model.ad.AdConfigModel">
+		update kp_ad_config
+		<set>
+			<if test="type != null and type !=''">
+				type=#{type},
+			</if>
+			<if test="value != null and value !=''">
+				value=#{value}
+			</if>
+			<if test="imgUrl != null and imgUrl !=''">
+				img_url =#{imgUrl}
+			</if>
+			<if test="showTm != null and showTm !=''">
+				show_tm = #{showTm}
+			</if>
+		</set>
+		where 
+			id=#{id} and is_del = '0';
+	</update>
+	
+	<update id="deleteAdConfig" parameterType="long">
+		update kp_ad_config
+		set
+			is_del = '1'
+		where
+			id=#{id}
+	</update>
+	
+	<select id="findAdConfig" resultType="com.kaipai.ck.model.ad.AdConfigModel">
+		select
+			t.id,
+			t.value,
+			t.type,
+			t.img_url as imgUrl,
+			t.show_tm as showTm,
+			t.create_tm as creatTm
+		from
+			kp_ad_config t
+		where
+			is_del = '0'
+	</select>
+
+</mapper>

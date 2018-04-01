@@ -1,0 +1,549 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kaipai.ck.mapper.bill.WithdrawMapper">
+	
+	<!-- 提现申请记录表 -->
+	<insert id="addBiWithdrawHis" useGeneratedKeys="true" keyProperty="id" parameterType="com.kaipai.ck.model.bill.Withdraw">
+		insert into
+		bi_withdraw_his(user_id,nickName,amt,req_tm,rec_bank_name,rec_name,rec_bank_no
+		,remark,state,audit_state,fee,broker_code)
+		values(
+		#{userId,jdbcType=BIGINT},
+		#{nickName,jdbcType=VARCHAR},
+		#{amt,jdbcType=DOUBLE},
+		now(),
+		#{recBankName,jdbcType=VARCHAR},
+		#{recName,jdbcType=VARCHAR},
+		#{recBankNo,jdbcType=VARCHAR},
+		#{remark,jdbcType=VARCHAR},
+		#{state,jdbcType=VARCHAR},
+	    #{auditState,jdbcType=VARCHAR},
+	    #{fee,jdbcType=DOUBLE},
+	    #{companyCode}
+		)
+	</insert>
+	
+	<select id="findWithdrawByUserId" parameterType="map" resultType="com.kaipai.ck.model.bill.Withdraw">
+		select
+			t.id as id,
+			t.user_id as userId,
+			t.nickName,amt,
+			t.req_tm as reqTm,
+			t.rec_bank_name as recBankName,
+			t.rec_name as recName,
+			t.rec_bank_no as recBankNo,
+			t.remark,t.state,
+			t.audit_state as auditState,
+			t.audit_usr_id as auditUsrId,
+			t.audit_tm as auditTm,
+			t.audit_nickName as auditNickName,
+			t.audit_reason as auditReason
+		from 
+			bi_withdraw_his t where t.user_id = #{userId}
+		<if test="lastTm != null">
+		<![CDATA[
+			and t.req_tm < #{lastTm}
+		]]>
+		</if>
+		and t.is_del = '0'
+		order by t.req_tm desc
+		limit 
+		<if test="pageIndex != null">
+			#{pageInde},
+		</if>
+		#{rows}
+	</select>
+	
+				<!-- ****************用户银行信息****************** -->
+	
+	<!-- 用户银行信息-->
+	<insert id="addUserBankInfo" parameterType="com.kaipai.ck.model.bill.Withdraw">
+		insert into
+		kp_user_bank_info(user_id,bank_name,name,bank_no,create_tm)
+		values(
+		#{userId,jdbcType=BIGINT},
+		#{recBankName,jdbcType=VARCHAR},
+		#{recName,jdbcType=VARCHAR},
+		#{recBankNo,jdbcType=VARCHAR},
+		SYSDATE()
+		)
+	</insert>
+	
+	<select id="findUserBankInfoByUserId" resultType="com.kaipai.ck.model.bill.UserBankInfoModel" parameterType="String">
+		select 
+			t.id as bankId,
+			t.user_id as userId,
+			t.bank_name as bankName,
+			t.name as name,
+			t.bank_name as bankName,
+			t.bank_no as bankNo
+			from kp_user_bank_info t where t.user_id=#{userId} and t.is_del = '0'
+			order by t.create_tm desc
+	</select>
+	
+	<select id="checkBankNoIsExist" resultType="int" parameterType="com.kaipai.ck.model.bill.Withdraw">
+		select count(0) from kp_user_bank_info t where t.user_id=#{userId} and t.bank_no = #{recBankNo}
+	</select>
+	
+	<update id="updateBankInfoCreateTm" parameterType="map">
+		update kp_user_bank_info set create_tm = now() where user_id=#{userId} and bank_no = #{cardNo}
+	</update>
+	
+	<select id="findUserBankInfoByBankId" resultType="com.kaipai.ck.model.bill.UserBankInfoModel" parameterType="String">
+		select 
+			t.id as bankId,
+			t.user_id as userId,
+			t.bank_name as bankName,
+			t.name as name,
+			t.bank_name as bankName,
+			t.bank_no as bankNo
+			from kp_user_bank_info t where t.id=#{bankId} and t.is_del = '0' limit 1
+	</select>
+	
+	<!-- 删除用户银行信息 -->
+	<delete id="deleteUserBankInfoByUserId" parameterType="com.kaipai.ck.model.bill.Withdraw">
+		delete from 
+		kp_user_bank_info
+		where user_id = #{userId,jdbcType=BIGINT}
+		
+	</delete>
+	
+	
+				<!-- ****************用户私有信息****************** -->
+	<select id="findUserPrivateInfoByUserId" resultType="com.kaipai.ck.model.bill.UserPrivateInfo"  parameterType="com.kaipai.ck.model.bill.UserPrivateInfo">
+		select 
+			ku.user_id userId,
+			ku.amt,
+			ku.lst_amt lstAmt,
+			ku.state,
+			ku.lock_amt lockAmt
+		from bi_user_priv_info ku
+		where ku.user_id = #{userId}
+	</select>
+	
+	<update id="updateUserPrivateInfo" parameterType="com.kaipai.ck.model.bill.UserPrivateInfo">
+	    update bi_user_priv_info set
+	    	lst_amt = #{lstAmt,jdbcType=BIGINT},
+	    	amt = #{amt,jdbcType=BIGINT},
+	    	lock_amt = #{lockAmt,jdbcType=BIGINT}
+	    where user_id = #{userId,jdbcType=BIGINT}
+	</update>
+	
+	<!-- 用户私有信息-->
+	<insert id="addUserPrivateInfo" parameterType="com.kaipai.ck.model.bill.UserPrivateInfo">
+		insert into
+		bi_user_priv_info(user_id,amt,lst_amt,state,create_tm,lock_amt)
+		values(#{userId,jdbcType=VARCHAR},#{amt,jdbcType=DOUBLE},#{lstAmt,jdbcType=DOUBLE},#{state,jdbcType=CHAR},SYSDATE(),#{lockAmt,jdbcType=DOUBLE})
+	</insert>
+	
+	<!-- 用户收益及充值 -->
+	<update id="updateUserPriAmt" parameterType="map">
+		update bi_user_priv_info set lst_amt = amt,amt = amt + #{amt,jdbcType=DOUBLE} where user_id = #{userId}
+	</update>
+	
+	<!-- 余额确认 -->
+	<select id="checkBalance" parameterType="map" resultType="int">
+		select count(0) from bi_user_priv_info where amt > #{amt,jdbcType=DOUBLE} and user_id = #{userId}
+	</select>
+	<!-- 余额支付 -->
+	<update id="updateUserPayWithBalance" parameterType="map">
+		update bi_user_priv_info set lst_amt = amt,amt = amt - #{amt,jdbcType=DOUBLE} where user_id = #{userId}
+	</update>
+	
+	
+	<!-- 删除用户私有信息 -->
+	<delete id="deleteUserPrivateInfoByUserId" parameterType="com.kaipai.ck.model.bill.UserPrivateInfo">
+		delete from 
+		bi_user_priv_info
+		where user_id = #{userId,jdbcType=BIGINT}
+	</delete>
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	<!-- 提现申请列表 -->
+	<select id="findList" resultType="com.kaipai.ck.model.bill.Withdraw" parameterType="hashmap">
+			select 
+			t.id,
+			t.user_id userId,
+			t.nickName nickName,
+			t.amt,
+			date_format(t.req_tm,'%Y-%c-%d %H:%i:%s') reqTm,
+			t.rec_bank_name recBankName,
+			t.rec_name recName,
+			t.rec_bank_no recBankNo,
+			t.remark ,
+			t.state,
+			t.audit_state auditState,
+			t.audit_usr_id auditUsrId,
+			t.audit_nickName auditNickName,
+			date_format(t.audit_tm,'%Y-%c-%d %H:%i:%s') auditTm,
+			t.audit_reason auditReason,
+			t.is_del isDel
+			from bi_withdraw_his t
+		 where 1=1
+		 <if test="null!=model.nickName and ''!=model.nickName">
+		 	and t.nickName like '%${model.nickName}%'
+		 </if>
+		 <if test="null!=model.state and ''!=model.state ">
+		 	and t.state=#{model.state}
+		 </if>
+		 <if test="null!=model.auditState and ''!=model.auditState ">
+		 	and t.audit_state=#{model.auditState}
+		 </if>
+		 <if test="null!=model.startTm and ''!=model.startTm ">
+		 	and t.req_tm >=#{model.startTm}
+		 </if>
+		 <if test="null!=model.endTm and ''!=model.endTm ">
+		 	<![CDATA[ and t.req_tm <= #{model.endTm}]]>
+		 </if>
+		 order by t.req_tm desc
+		 limit #{pageIndex},#{pageSize}
+	</select>
+	
+	<select id="findWithdrawByTmAndState" parameterType="map" resultType="com.kaipai.ck.model.bill.Withdraw">
+		select 
+			t.id,
+			t.user_id userId,
+			t.nickName nickName,
+			t.amt,
+			t.req_tm reqTm,
+			t.rec_bank_name recBankName,
+			t.rec_name recName,
+			t.rec_bank_no recBankNo,
+			t.remark ,
+			t.state,
+			t.audit_state auditState,
+			t.audit_usr_id auditUserId,
+			t.audit_nickName auditNickName,
+			t.audit_tm auditTm,
+			t.audit_reason auditReason,
+			t.is_del isDel,
+			t.fee
+			from bi_withdraw_his t
+			where 1=1
+			<if test="start != null and start != ''">
+				<![CDATA[ and t.req_tm >= #{start} ]]>
+			</if>
+			<if test="end != null and end != ''">
+				<![CDATA[ and t.req_tm <= #{end}  ]]>
+			</if>
+			<if test="state != null and state != ''">
+				and t.state = #{state}
+			</if>
+			<if test="nickName != null and nickName != ''">
+				and t.rec_name like CONCAT(#{nickName},"%")
+			</if>
+			<if test="auditState != null and auditState !=''">
+				and t.audit_state = #{auditState}
+			</if>
+			<if test="companyCode != null and companyCode != ''">
+				and t.broker_code = #{companyCode}
+			</if>
+			<if test="type == 'STAR'">
+				and t.user_id in 
+				<foreach item="item" collection="userIds" open="(" separator="," close=")">  
+				 #{item}  
+				</foreach> 
+			</if>
+			<if test="type == 'USER'">
+				and t.user_id not in 
+				<foreach item="item" collection="userIds" open="(" separator="," close=")">  
+				 #{item}  
+				</foreach> 
+			</if>
+			order by t.req_tm desc
+			limit #{index},#{rows}
+	</select>
+	
+	<select id="findWithdrawByTmAndStateCount" parameterType="map" resultType="long">
+		select 
+			count(0)
+			from bi_withdraw_his t
+			where 1=1
+			<if test="start != null and start != ''">
+				<![CDATA[ and t.req_tm >= #{start} ]]>
+			</if>
+			<if test="end != null and end != ''">
+				<![CDATA[ and t.req_tm <= #{end} ]]>
+			</if>
+			<if test="state != null and state != ''">
+				and t.state = #{state}
+			</if>
+			<if test="nickName != null and nickName != ''">
+				and t.rec_name like CONCAT(#{nickName},"%")
+			</if>
+			<if test="auditState != null and auditState !=''">
+				and t.audit_state = #{auditState}
+			</if>
+			<if test="companyCode != null and companyCode != ''">
+				and t.broker_code = #{companyCode}
+			</if>
+			<if test="type == 'STAR'">
+				and t.user_id in 
+				<foreach item="item" index="index" collection="userIds" open="(" separator="," close=")">  
+				 #{item}  
+				</foreach> 
+			</if>
+			<if test="type == 'USER'">
+				and t.user_id not in 
+				<foreach item="item" index="index" collection="userIds" open="(" separator="," close=")">  
+				 #{item}  
+				</foreach> 
+			</if>
+	</select>
+	
+	
+	
+	<!-- 统计记录数 -->
+	<select id="getTotalCount" resultType="long" parameterType="hashmap">
+	 	select 
+			count(0)
+			from bi_withdraw_his t
+		 where 1=1
+		 <if test="null!=model.nickName and ''!=model.nickName">
+		 	and t.nickName like '%${model.nickName}%'
+		 </if>
+		 <if test="null!=model.state and ''!=model.state ">
+		 	and t.state=#{model.state}
+		 </if>
+		 <if test="null!=model.auditState and ''!=model.auditState ">
+		 	and t.audit_state=#{model.auditState}
+		 </if>
+		 <if test="null!=model.startTm and ''!=model.startTm ">
+		 	and t.req_tm >=#{model.startTm}
+		 </if>
+		 <if test="null!=model.endTm and ''!=model.endTm ">
+		 	<![CDATA[ and t.req_tm <= #{model.endTm}]]>
+		 </if>
+	</select>
+	
+
+	<!-- 提现申请详细信息 -->
+	<select id="getWithdrawById" resultType="com.kaipai.ck.model.bill.Withdraw" parameterType="String">
+			select 
+			t.id,
+			t.user_id userId,
+			t.nickName nickName,
+			t.amt,
+			t.req_tm reqTm,
+			t.rec_bank_name recBankName,
+			t.rec_name recName,
+			t.rec_bank_no recBankNo,
+			t.remark ,
+			t.state,
+			t.audit_state auditState,
+			t.audit_usr_id auditUsrId,
+			t.audit_nickName auditNickName,
+			t.audit_tm  auditTm,
+			t.audit_reason auditReason,
+			t.is_del isDel,
+			t.fee
+			from bi_withdraw_his t
+		 where t.id = #{id}
+	</select>
+
+	
+	<!-- 审核提现申请 -->
+	<update id="updateBeanAuditState" parameterType="com.kaipai.ck.model.bill.Withdraw">
+		update bi_withdraw_his set 
+		 state = #{state},
+		 audit_state = #{auditState},
+		 audit_reason = #{auditReason}, 
+		 audit_usr_id = #{auditUserId},
+		 audit_nickName = #{auditNickName},
+		 audit_tm = now()
+		 where  id = #{id}
+	</update>
+	
+	
+	<!-- 删除提现申请 -->
+	<update id="deleteBean" parameterType="com.kaipai.ck.model.bill.Withdraw">
+		update bi_withdraw_his set is_del = #{isDel} where  id = #{id}
+	</update>
+	
+	
+	
+			<!-- **********************用户付款明细********************* -->
+	
+	
+	<!-- 查询所有用户付款明细 -->
+	<select id="findPayHisPage" resultType="com.kaipai.ck.model.bill.UserAmtHis" parameterType="hashmap">
+	select cu.amt_no amtNo
+		,truncate(cu.amt/100,2) amtDouble
+		,cu.op_code opCode
+		,ku.nick_name nickName
+		,DATE_FORMAT(cu.create_tm,'%Y-%c-%d %H:%i:%s')  createTmString
+		,cu.amt_info amtInfo
+		,cu.keywd
+		,cu.audit_state auditState
+		,cu.audit_user auditUser
+		,au.nick_name auditNickName
+		 from bi_user_amt_his cu left join kp_users ku on cu.user_id = ku.user_id
+		 left join kp_users au on cu.audit_user = au.user_id
+		where 1=1 
+		<if test="model.nickName != null and model.nickName != '' ">
+			and ku.nick_name like  '%${model.nickName}%' 
+		</if>
+		 <if test="null!=model.startTm and ''!=model.startTm ">
+		 	and cu.create_tm >=#{model.startTm}
+		 </if>
+		 <if test="null!=model.endTm and ''!=model.endTm ">
+		 	<![CDATA[ and cu.create_tm <= #{model.endTm}]]>
+		 </if>
+		 order by cu.create_tm desc
+		limit #{pageIndex},#{pageSize}
+	</select>
+	<!-- 查询用户付款明细 -->
+	<select id="findSumPay" resultType="com.kaipai.ck.model.bill.UserAmtHis" >
+			SELECT 
+		IF(t.todayRecharge>0,t.todayRecharge,0) todayRecharge, 
+		IF(t.totalRecharge>0,t.totalRecharge,0) totalRecharge,
+		
+		IF(t.todayWithdraw>0,t.todayWithdraw,0) todayWithdraw, 
+		IF(t.totalWithdraw>0,t.totalWithdraw,0) totalWithdraw,
+		
+		IF(t.todayTradeBenifit>0,t.todayTradeBenifit,0) todayTradeBenifit, 
+		IF(t.totalTradeBenifit>0,t.totalTradeBenifit,0) totalTradeBenifit,
+		
+		IF(t.todayWithdrawBenifit>0,t.todayWithdrawBenifit,0) todayWithdrawBenifit, 
+		IF(t.totalWithdrawBenifit>0,t.totalWithdrawBenifit,0) totalWithdrawBenifit,
+		
+		IF(t.todayTrafBenifit>0,t.todayTrafBenifit,0) todayTrafBenifit, 
+		IF(t.totalTrafBenifit>0,t.totalTrafBenifit,0) totalTrafBenifit
+	FROM (
+		SELECT 
+		  (SELECT SUM(a.amt) FROM bi_user_amt_his a WHERE a.op_code = '+' AND DATEDIFF(a.create_tm,SYSDATE())=0
+			AND (a.BUSI_CODE='RECHR_BI' OR a.BUSI_CODE='RECHARGE' or a.BUSI_CODE = 'REDPACKET')) AS todayRecharge,
+			
+			(SELECT SUM(a.amt) FROM bi_user_amt_his a WHERE a.op_code = '+' 
+			AND (a.BUSI_CODE='RECHR_BI' OR a.BUSI_CODE='RECHARGE' or a.BUSI_CODE = 'REDPACKET')) AS totalRecharge,
+			
+			(SELECT SUM(amt) FROM bi_withdraw_his a WHERE a.`state` = 'SUCCESS' AND DATEDIFF(a.audit_tm,SYSDATE())=0) AS todayWithdraw,
+			
+			(SELECT SUM(amt) FROM bi_withdraw_his a WHERE a.`state` = 'SUCCESS') AS totalWithdraw,
+			
+			  (SELECT SUM(bi_user_amt_his.amt) FROM bi_user_amt_his WHERE bi_user_amt_his.user_id=20 AND
+			   DATEDIFF(bi_user_amt_his.create_tm,SYSDATE())=0)AS  todayTradeBenifit,
+			   
+			   (SELECT SUM(bi_user_amt_his.amt) FROM bi_user_amt_his WHERE bi_user_amt_his.user_id=20 )AS  totalTradeBenifit,
+			   
+			    (SELECT SUM(bi_user_amt_his.amt) FROM bi_user_amt_his WHERE bi_user_amt_his.user_id=25 AND
+			   DATEDIFF(bi_user_amt_his.create_tm,SYSDATE())=0)AS  todayWithdrawBenifit,
+			   
+			   (SELECT SUM(bi_user_amt_his.amt) FROM bi_user_amt_his WHERE bi_user_amt_his.user_id=25 )AS  totalWithdrawBenifit,
+			   
+			   (SELECT SUM(bi_user_amt_his.amt) FROM bi_user_amt_his WHERE bi_user_amt_his.user_id=21 AND
+			   DATEDIFF(bi_user_amt_his.create_tm,SYSDATE())=0)AS  todayTrafBenifit,
+			   
+			   (SELECT SUM(bi_user_amt_his.amt) FROM bi_user_amt_his WHERE bi_user_amt_his.user_id=21 )AS  totalTrafBenifit
+			
+		FROM DUAL
+	) t
+	
+	</select>
+
+	<!-- 查询记录的总数，用于分页显示 -->
+	<select id="findPayHisCount" resultType="long" parameterType="hashmap">
+   select count(0)
+		 from bi_user_amt_his cu left join kp_users ku on cu.user_id = ku.user_id
+		 left join kp_users au on cu.user_id = au.user_id
+		where 1=1 
+		<if test="model.nickName != null and model.nickName != '' ">
+			and ku.nick_name like  '%${model.nickName}%' 
+		</if>
+		 <if test="null!=model.startTm and ''!=model.startTm ">
+		 	and cu.create_tm >=#{model.startTm}
+		 </if>
+		 <if test="null!=model.endTm and ''!=model.endTm ">
+		 	<![CDATA[ and cu.create_tm <= #{model.endTm}]]>
+		 </if>
+	</select>
+	
+	
+	<!-- 查询用户付款明细 -->
+	<select id="findPayHisByAmtNo" resultType="com.kaipai.ck.model.bill.UserAmtHis" parameterType="String">
+	select cu.amt_no amtNo
+		,truncate(cu.amt/100,2) amtDouble
+		,cu.op_code opCode
+		,ku.nick_name nickName
+		,DATE_FORMAT(cu.create_tm,'%Y-%c-%d %H:%i:%s')  createTmString
+		,cu.amt_info amtInfo
+		,cu.keywd
+		,cu.audit_state auditState
+		,cu.audit_user auditUser
+		,au.nick_name auditNickName
+		 from bi_user_amt_his cu left join kp_users ku on cu.user_id = ku.user_id
+		 left join kp_users au on cu.audit_user = au.user_id
+		where cu.amt_no = #{amtNo}
+		
+	</select>
+	
+	
+	<!-- 用户金额明细 -->
+	<insert id="addUserAmtHis" parameterType="com.kaipai.ck.model.bill.UserAmtHis">
+		
+		insert into
+		bi_user_amt_his(user_id,amt_no,amt,op_code,create_tm,amt_info,keywd,audit_state,audit_user,busi_code)
+		values(
+		#{userId,jdbcType=BIGINT},
+		#{amtNo,jdbcType=VARCHAR},
+		#{amt,jdbcType=BIGINT},
+		#{opCode,jdbcType=VARCHAR},
+		SYSDATE(),
+		#{amtInfo,jdbcType=VARCHAR},
+		#{keywd,jdbcType=VARCHAR},
+		#{auditState,jdbcType=VARCHAR},
+	    #{auditUser,jdbcType=VARCHAR},
+	     #{busiCode,jdbcType=VARCHAR}
+		)
+	</insert>
+	
+	<!-- 添加冻结记录 -->
+	<insert id="insertOrUpdateFreezeWithdraw">
+		insert into bi_withdraw_freeze(user_id,reason,freeze_count,freeze_count_total) 
+		values(#{userId},#{reason},#{num},1)
+		on duplicate key update reason = #{reason},freeze_count = #{num},freeze_count_total = freeze_count_total + 1
+	</insert>
+	
+	<!-- 被被冻结天数 -->
+	<select id="findWithdrawFreeze" resultType="com.kaipai.ck.model.bill.WithdrawFreezeModel">
+		select 
+			user_id as userId,
+			unfreeze_date as unfreezeDate,
+			reason as reason,
+			freeze_count as freezeCount,
+			freeze_count_total as total
+		from 
+			bi_withdraw_freeze 
+		where
+			user_id = #{userId}
+	</select>
+	
+	<update id="updateFreezeDate" parameterType="com.kaipai.ck.model.bill.WithdrawFreezeModel">
+		update
+			bi_withdraw_freeze
+		set 
+			unfreeze_date = #{unfreezeDate},freeze_count = 0
+		where
+			user_id = #{userId}
+	</update>
+	
+	
+	
+	
+
+	
+	
+</mapper>
